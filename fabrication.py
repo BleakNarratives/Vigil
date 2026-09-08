@@ -43,6 +43,18 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+# Reserved payload key the sink uses to embed the exact signed fields; a
+# hardcoded fallback keeps this module importable even if integrity.py is
+# missing (degraded mode still cross-checks the flat fields).
+try:
+    from sdk.integrity import SPOTTING_EMBED_KEY
+    SPOTTING_EMBED_KEY = SPOTTING_EMBED_KEY
+except ImportError:
+    try:
+        from integrity import SPOTTING_EMBED_KEY
+    except ImportError:
+        SPOTTING_EMBED_KEY = "_spotting"
+
 DEFAULT_CHANNEL = "scout.signals"
 
 
@@ -61,12 +73,16 @@ class FabricationReport:
     unmatched: List[Dict[str, Any]] = field(default_factory=list)
     ghost_bus_events: List[Dict[str, Any]] = field(default_factory=list)
     signature_failures: List[Dict[str, Any]] = field(default_factory=list)
+    field_mismatches: List[Dict[str, Any]] = field(default_factory=list)
+    replays: List[Dict[str, Any]] = field(default_factory=list)
     uncorrelated: List[Dict[str, Any]] = field(default_factory=list)
     issues: List[str] = field(default_factory=list)
 
     @property
     def consistent(self) -> bool:
-        return not (self.unmatched or self.ghost_bus_events or self.signature_failures)
+        return not (self.unmatched or self.ghost_bus_events
+                    or self.signature_failures or self.field_mismatches
+                    or self.replays)
 
     def __bool__(self) -> bool:
         return self.consistent
@@ -77,6 +93,7 @@ class FabricationReport:
             f"pheromones={self.pheromone_count} bus={self.bus_publish_count} "
             f"matched={self.matched} unmatched={len(self.unmatched)} "
             f"ghosts={len(self.ghost_bus_events)} sig_fail={len(self.signature_failures)} "
+            f"field_mismatch={len(self.field_mismatches)} replays={len(self.replays)} "
             f"uncorrelated={len(self.uncorrelated)}"
         )
 
@@ -128,11 +145,20 @@ class FabricationDetector:
         report.bus_publish_count = len(publishes)
 
         referenced: set = set()
+        seen_ids: set = set()
 
         for ph in pheromones:
             payload = ph.get("payload") or {}
             sig = payload.get("signature")
             msg_id = payload.get("bus_msg_id")
+
+            # replay detection: a store record id may appear only once
+            rid = ph.get("id")
+            if rid in seen_ids:
+                report.replays.append(ph)
+                report.issues.append(
+                    f"replay: duplicate store record id {rid} ({ph.get('path')})")
+            seen_ids.add(rid)
 
             if sig:
                 if self.guard and not self.guard.verify(ph):
@@ -141,6 +167,27 @@ class FabricationDetector:
                         f"signature failure: {ph.get('id')} ({ph.get('path')})")
             else:
                 report.uncorrelated.append(ph)
+
+            # sign-what's-read: the signed embed and the flat store fields
+            # consumers actually read must agree (H2: path spoofing)
+            embed = payload.get(SPOTTING_EMBED_KEY)
+            if isinstance(embed, dict):
+                pairs = [
+                    ("path", "target"), ("type", "kind"),
+                    ("source", "source"), ("strength", "strength"),
+                    ("decay_rate", "decay_rate"),
+                ]
+                for flat_key, embed_key in pairs:
+                    flat_val, embed_val = ph.get(flat_key), embed.get(embed_key)
+                    if flat_val != embed_val:
+                        report.field_mismatches.append({"id": ph.get("id"),
+                                                        "field": flat_key,
+                                                        "flat": flat_val,
+                                                        "signed": embed_val})
+                        report.issues.append(
+                            f"field mismatch: {ph.get('id')} flat {flat_key}="
+                            f"{flat_val!r} vs signed {embed_key}={embed_val!r}")
+                        break
 
             if msg_id is None:
                 report.issues.append(

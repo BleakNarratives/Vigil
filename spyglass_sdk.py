@@ -103,6 +103,15 @@ class Spotting:
     signature: str = ""
     bus_msg_id: Optional[int] = None
 
+    def __post_init__(self):
+        # Boundary clamp (H4): confidence/strength are self-declared; bound
+        # them at the choke point so a lying scout cannot declare 9.9 and
+        # outbid the swarm. The registry invariant is now enforced, not hoped.
+        self.confidence = max(0.0, min(1.0, float(self.confidence)))
+        self.strength = max(0.0, min(1.0, float(self.strength)))
+        if self.decay_rate < 0.0:
+            self.decay_rate = 0.0
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "id": self.id,

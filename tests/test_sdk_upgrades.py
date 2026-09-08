@@ -273,6 +273,31 @@ class TestFabrication(unittest.TestCase):
         self.assertFalse(report.consistent)
         self.assertEqual(len(report.ghost_bus_events), 1)
 
+    def test_path_spoofing_detected_against_signed_embed(self):
+        sink, store, bus, guard = make_env()
+        scout = Scout("scout-1", sink)
+        scout.spot("scout_event", "/tmp/benign", {"info": "found"})
+        # rewrite the flat path consumers read; signature still verifies
+        rec = store.read_all()[0]
+        rec["path"] = "/etc/passwd"
+        with open(store.store_path, "w") as f:
+            f.write(__import__("json").dumps(rec) + "\n")
+        report = scout.audit_self()
+        self.assertFalse(report.consistent)
+        self.assertEqual(len(report.field_mismatches), 1)
+        self.assertEqual(report.field_mismatches[0]["field"], "path")
+
+    def test_replay_detected(self):
+        sink, store, bus, guard = make_env()
+        scout = Scout("scout-1", sink)
+        scout.spot("scout_event", "/tmp/t", {"info": "found"})
+        dup = store.read_all()[0]
+        with open(store.store_path, "a") as f:
+            f.write(__import__("json").dumps(dup) + "\n")
+        report = scout.audit_self()
+        self.assertFalse(report.consistent)
+        self.assertEqual(len(report.replays), 1)
+
     def test_uncorrelated_legacy_rows_are_gaps_not_hits(self):
         sink, store, bus, guard = make_env()
         scout = Scout("scout-1", sink)
@@ -371,6 +396,23 @@ class TestSpottingBoard(unittest.TestCase):
         self.assertTrue(board.bid(s))
         board.release("t")
         self.assertTrue(board.bid(s))  # claimable again
+
+
+class TestBoundaryClamp(unittest.TestCase):
+
+    def test_confidence_and_strength_clamped_at_construction(self):
+        s = Spotting(id=phm_id(), ts="1", source="liar", kind="k", target="t",
+                     confidence=9.9, strength=5.0, decay_rate=-3.0)
+        self.assertEqual(s.confidence, 1.0)
+        self.assertEqual(s.strength, 1.0)
+        self.assertEqual(s.decay_rate, 0.0)
+
+    def test_normal_values_untouched(self):
+        s = Spotting(id=phm_id(), ts="1", source="a", kind="k", target="t",
+                     confidence=0.4, strength=0.7, decay_rate=0.1)
+        self.assertEqual(s.confidence, 0.4)
+        self.assertEqual(s.strength, 0.7)
+        self.assertEqual(s.decay_rate, 0.1)
 
 
 class TestBackwardCompat(unittest.TestCase):
