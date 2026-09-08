@@ -32,9 +32,9 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, List, Optional
 
-from sdk.peerwatch import (  # noqa: E402
+from vigil.peerwatch import (  # noqa: E402
     PeerWatch, WEIGHT_MIN, WEIGHT_MAX, CONFIRM_REWARD, _WEIGHT_DEPTH)
-from sdk.knose import Knose  # noqa: E402
+from vigil.knose import Knose  # noqa: E402
 
 DEFECT_THRESHOLD = 0.35   # below this effective weight, the defender defects
 VAPORIZE_THRESHOLD = 0.15  # below this, the objective itself is gone

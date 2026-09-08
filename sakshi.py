@@ -19,10 +19,10 @@ Design (matches the ecosystem precedents):
     fabrication detector's honesty: a broken chain is reported loudly.
 
 CLI:
-    python3 sdk/sakshi.py journal "the swarm outbid me today" --author mike
-    python3 sdk/sakshi.py record --kind wargame --agent vip3r "scan outcome"
-    python3 sdk/sakshi.py dump [--jsonl]
-    python3 sdk/sakshi.py verify
+    python3 vigil/sakshi.py journal "the swarm outbid me today" --author mike
+    python3 vigil/sakshi.py record --kind wargame --agent vip3r "scan outcome"
+    python3 vigil/sakshi.py dump [--jsonl]
+    python3 vigil/sakshi.py verify
 """
 
 from __future__ import annotations
@@ -36,8 +36,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-DEFAULT_PATH = Path("~/.spyglass/sakshi.jsonl").expanduser()
-PAPER_PATH = Path("~/.spyglass/sakshi_paper_export.jsonl").expanduser()
+DEFAULT_PATH = Path("~/.vigil/sakshi.jsonl").expanduser()
+PAPER_PATH = Path("~/.vigil/sakshi_paper_export.jsonl").expanduser()
 
 # Reserved kinds — the paper's schema. Anything else still records, but these
 # are the ones the analysis pass will know how to read.

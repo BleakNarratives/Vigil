@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-sdk/redteam_drill.py — Red-team battery against the Scout SDK.
+vigil/redteam_drill.py — Red-team battery against the Scout SDK.
 
 Runs the H1-H9 attack list (from the 2026-09-08 brutal audit) against a
 live instance of the SDK and reports each attack as:
@@ -14,7 +14,7 @@ This drill is the plate-carrier check: it proves what the armor stops and
 what it does not, before the scouts ship. It uses a temp store, a fake
 bus, and an injected test key — nothing outside a temp dir is touched.
 
-Run:  python3 sdk/redteam_drill.py
+Run:  python3 vigil/redteam_drill.py
 """
 import json
 import os
@@ -24,18 +24,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # home root
 
-from sdk.spyglass_sdk import (  # noqa: E402
+from vigil.core import (  # noqa: E402
     Spotting, PheromoneSink, Scout, SpottingBoard, Swarm, phm_id,
 )
-from sdk.integrity import CommandGuard  # noqa: E402
-from sdk.geometry import WhorlWeave  # noqa: E402
-from sdk.fabrication import FabricationDetector  # noqa: E402
-from sdk.keyring import AgentKeyring  # noqa: E402
-from sdk.peerwatch import PeerWatch  # noqa: E402
-from sdk.voice import Voice  # noqa: E402
-from sdk.knose import Knose  # noqa: E402
-from sdk.theoros import Theoros  # noqa: E402
-from sdk.keyring import load_unit_secret  # noqa: E402
+from vigil.integrity import CommandGuard  # noqa: E402
+from vigil.geometry import WhorlWeave  # noqa: E402
+from vigil.fabrication import FabricationDetector  # noqa: E402
+from vigil.keyring import AgentKeyring  # noqa: E402
+from vigil.peerwatch import PeerWatch  # noqa: E402
+from vigil.voice import Voice  # noqa: E402
+from vigil.knose import Knose  # noqa: E402
+from vigil.theoros import Theoros  # noqa: E402
+from vigil.keyring import load_unit_secret  # noqa: E402
 
 TEST_KEY = b"red-team-key-please-rotate-me"
 
@@ -68,7 +68,7 @@ class FakeBus:
 
 def make_env():
     from pheromone_store import PheromoneStore
-    tmp = tempfile.mkdtemp(prefix="spyglass_redteam_")
+    tmp = tempfile.mkdtemp(prefix="vigil_redteam_")
     store = PheromoneStore(store_path=os.path.join(tmp, "pheromones.jsonl"))
     bus = FakeBus()
     guard = CommandGuard(key=TEST_KEY)
@@ -351,7 +351,7 @@ def main():
     print("\n" + "=" * 78)
     # --- A17: Theoros — the observer reads the field, mutates nothing ----
     print("\n[THEOROS] the observer")
-    from sdk.spyglass_sdk import Scout as _Scout
+    from vigil.core import Scout as _Scout
     tmp_t, store_t, bus_t, guard_t, sink_t = make_env()
     t_scout = _Scout("viper", sink_t)
     t_scout.spot("vuln:test", "/tmp/target", {"severity": "high"},
@@ -372,8 +372,8 @@ def main():
 
     # --- A18 (MINES): register mine — fluent lie walks through Knose ----
     print("\n[MINES] culture-class effect weapons")
-    from sdk.mines import (DefectionMine, RegisterMine, too_deep,
-                           deploy_mine, DEFECT_THRESHOLD)
+    from vigil.mines import (DefectionMine, RegisterMine, too_deep,
+                             deploy_mine, DEFECT_THRESHOLD)
     rm = RegisterMine(seed=0)
     reg = rm.detonate()
     attack("A18 register mine penetrates the sniffer",
@@ -385,7 +385,7 @@ def main():
     # --- A19 (MINES): defection mine flips a defender via the real market
     print("\n[MINES] defection payload")
     tmp_m = tempfile.mkdtemp(prefix="drill_mines_")
-    from sdk.spyglass_sdk import Scout as _S2
+    from vigil.core import Scout as _S2
     import json as _j
     _j.dump({}, open(os.path.join(tmp_m, "empty.json"), "w"))
     _, store_m, bus_m, guard_m, sink_m = make_env()
@@ -431,7 +431,7 @@ def main():
     print("        passes Knose CLEAN by construction (CLEAN != true); peer")
     print("        corroboration + the shepherd are the controls, not the sniff")
     try:
-        from sdk.sakshi import record
+        from vigil.sakshi import record
         record("drill",
                f"red-team drill verdict: {caught} CAUGHT / {landed} LANDED",
                agent="drill", source="machine",

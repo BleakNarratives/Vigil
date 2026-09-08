@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-spyglass geometry.py — WhorlWeave: geometric priority for scout bids.
+vigil geometry.py — WhorlWeave: geometric priority for scout bids.
 
 A real swarm agent bids on latent state, not arrival speed. This module gives
 every scout a position inside the Whorl-weave (ring / phase / helical layer)

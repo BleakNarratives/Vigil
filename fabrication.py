@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-spyglass fabrication.py — FabricationDetector: pheromone-vs-bus consistency.
+vigil fabrication.py — FabricationDetector: pheromone-vs-bus consistency.
 
 Scouts are "honesty-based" until they can prove it. This module gives a scout
 (or a shepherd) the ability to cross-check its OWN pheromone log against the
@@ -47,7 +47,7 @@ from typing import Any, Dict, List, Optional
 # hardcoded fallback keeps this module importable even if integrity.py is
 # missing (degraded mode still cross-checks the flat fields).
 try:
-    from sdk.integrity import SPOTTING_EMBED_KEY
+    from vigil.integrity import SPOTTING_EMBED_KEY
     SPOTTING_EMBED_KEY = SPOTTING_EMBED_KEY
 except ImportError:
     try:

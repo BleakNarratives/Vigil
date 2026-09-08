@@ -1,5 +1,5 @@
 """
-Tests for the Spyglass SDK capability upgrades (2026-09-08):
+Tests for the Vigil SDK capability upgrades (2026-09-08):
 
   1. integrity   — CommandGuard signs before emission; tamper is caught.
   2. geometry    — WhorlWeave positions, quadratic dispersion, latent state.
@@ -14,19 +14,19 @@ import os
 import tempfile
 import unittest
 
-from sdk.spyglass_sdk import (
+from vigil.core import (
     Spotting, PheromoneSink, Scout, SpottingBoard, Swarm, BidResult, phm_id,
 )
-from sdk.integrity import CommandGuard, IntegrityError, ensure_key
-from sdk.geometry import WhorlWeave, WeavePosition
-from sdk.fabrication import FabricationDetector, FabricationReport
-from sdk.keyring import AgentKeyring, derive_agent_key, module_dna_fingerprint
-from sdk.peerwatch import PeerWatch
-from sdk.voice import Voice
-from sdk.knose import Knose
-from sdk.theoros import Theoros
-from sdk.keyring import load_unit_secret
-from sdk import wargame as wargame_mod
+from vigil.integrity import CommandGuard, IntegrityError, ensure_key
+from vigil.geometry import WhorlWeave, WeavePosition
+from vigil.fabrication import FabricationDetector, FabricationReport
+from vigil.keyring import AgentKeyring, derive_agent_key, module_dna_fingerprint
+from vigil.peerwatch import PeerWatch
+from vigil.voice import Voice
+from vigil.knose import Knose
+from vigil.theoros import Theoros
+from vigil.keyring import load_unit_secret
+from vigil import wargame as wargame_mod
 
 try:
     from SyntaxIntelligence.event_bus import SyntaxEventBus
@@ -126,7 +126,7 @@ class TestIntegrity(unittest.TestCase):
             s = self._spotting()
             guard.sign(s)
             self.assertTrue(guard.verify(s))
-            self.assertFalse(os.path.exists(os.path.join(home, ".spyglass")))
+            self.assertFalse(os.path.exists(os.path.join(home, ".vigil")))
         finally:
             if old is None:
                 os.environ.pop("HOME", None)
@@ -795,7 +795,7 @@ class TestBackwardCompat(unittest.TestCase):
 
     def test_old_construction_and_truthiness(self):
         # original README example still works
-        from sdk.spyglass_sdk import PheromoneSink as PSink, Scout as S
+        from vigil.core import PheromoneSink as PSink, Scout as S
         sink = PSink(store=None, event_bus=None, guard=None)
         scout = S("my-agent", sink)
         s = scout.spot("scout_event", "target_path", {"info": "found something"})

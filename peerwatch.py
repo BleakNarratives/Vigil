@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-spyglass peerwatch.py — PeerWatch: scouts rat on each other (H4).
+vigil peerwatch.py — PeerWatch: scouts rat on each other (H4).
 
 A lying scout declares confidence=1.0 and strength=1.0 and outbids the
 swarm — unless the swarm is watching. PeerWatch lets scouts flag or vouch
@@ -35,7 +35,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 try:
-    from sdk.integrity import CommandGuard
+    from vigil.integrity import CommandGuard
 except ImportError:
     try:
         from integrity import CommandGuard

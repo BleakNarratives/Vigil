@@ -1,4 +1,6 @@
-# Spyglass Scout-Spotter SDK
+# Vigil — Scout-Spotter SDK
+
+(Vigil, operator-named 2026-09-08: the night watch — the discipline of staying awake to guard what matters. Formerly Spyglass / repo BurnBugs; the rename preserved the old URL with a GitHub redirect.)
 
 The core substrate for swarm scouting agents to `spot`, `bid`, `claim`, and `report`.
 
@@ -6,34 +8,34 @@ The core substrate for swarm scouting agents to `spot`, `bid`, `claim`, and `rep
 
 | Layer | Module | What it does |
 |-------|--------|--------------|
-| **Integrity** | `sdk/integrity.py` | `CommandGuard` hashes the command path and signs every pheromone with a local HMAC key **before emission** (proof-of-work). Tampered or forged log records fail verification. |
-| **Geometry** | `sdk/geometry.py` | `WhorlWeave` gives every scout a position in the weave (ring/phase/helix). `bid()` computes confidence + strength from that geometry via **quadratic dispersion** (`urgency / (1 + k·d²)`) plus **latent state** (health, resource cost, mission priority) — not arrival speed. |
-| **Fabrication** | `sdk/fabrication.py` | `FabricationDetector` cross-checks a scout's own pheromone log against the `SyntaxEventBus` log: matched receipts, unmatched (forged) receipts, ghost bus events, signature failures, field mismatches, replays, unsigned claims. `Scout.audit_self()` runs it. |
-| **Receipts** | `sdk/receipts.py` | Durable `spotting_id -> bus_msg_id` correlation ledger — audits survive bus restarts, and the sink can persist-before-publish (subscribers never act on unrecorded spottings). |
-| **Keyring** | `sdk/keyring.py` | RoboCop key custody (H1): per-agent signing keys derived from a unit secret + agent identity — the gun only fires for its owner; the charge lives in the concierge vault (`load_unit_secret` / `AgentKeyring.from_vault`), generated once, never on disk elsewhere. |
-| **Theoros** | `sdk/theoros.py` | THE OBSERVER (operator-named): read-only monitoring layer — fabrication audit + voice sniff + reputation standings + votes + suggestions + receipt chain in one reading. Theory from watching; mutates nothing. |
-| **PeerWatch** | `sdk/peerwatch.py` | Peer accountability (H4): scouts flag/vouch each other's declared values; RECURSIVELY WEIGHTED reputation (each flag/vouch counts per the actor's own standing — colluding dirtbags can't launder each other, false flags from dirtbags barely dent) discounts flagged liars' bids — quietly recorded, shepherd-visible. |
-| **Knose** | `sdk/knose.py` | THE BULLSHIT SNIFFER: deterministic anti-register scanner (hedges, vague quantifiers, certainty-without-evidence, LARP, sycophancy) — Voice auto-flags corrupt utterances into PeerWatch. TruthSleuth's LLM enrichment is the optional backend seam. |
-| **Mines** | `sdk/mines.py` | CULTURE-CLASS EFFECT WEAPONS (operator-specced): mines whose payload is an *argument*, not an explosion. DefectionMine computes the minimal signed flag chain that flips a defender through the target's OWN weighted-reputation market (plan predicts the real market to float precision); RegisterMine manufactures fluent-register lies Knose rates CLEAN by construction (a lie wearing the register perfectly cannot be caught by a register scanner); too_deep() grades overreach — fire past the objective and the city vaporizes, cost to the operator. |
-| **Sakshi** | `sdk/sakshi.py` | THE SILENT WITNESS (operator-named): append-only, sha256-chained observation stream for the white-paper corpus — machine events and operator journal entries in ONE chain, tagged by source, never conflated. Records everything, says nothing. CLI: `python3 sdk/sakshi.py journal "..." --author mike`. |
+| **Integrity** | `vigil/integrity.py` | `CommandGuard` hashes the command path and signs every pheromone with a local HMAC key **before emission** (proof-of-work). Tampered or forged log records fail verification. |
+| **Geometry** | `vigil/geometry.py` | `WhorlWeave` gives every scout a position in the weave (ring/phase/helix). `bid()` computes confidence + strength from that geometry via **quadratic dispersion** (`urgency / (1 + k·d²)`) plus **latent state** (health, resource cost, mission priority) — not arrival speed. |
+| **Fabrication** | `vigil/fabrication.py` | `FabricationDetector` cross-checks a scout's own pheromone log against the `SyntaxEventBus` log: matched receipts, unmatched (forged) receipts, ghost bus events, signature failures, field mismatches, replays, unsigned claims. `Scout.audit_self()` runs it. |
+| **Receipts** | `vigil/receipts.py` | Durable `spotting_id -> bus_msg_id` correlation ledger — audits survive bus restarts, and the sink can persist-before-publish (subscribers never act on unrecorded spottings). |
+| **Keyring** | `vigil/keyring.py` | RoboCop key custody (H1): per-agent signing keys derived from a unit secret + agent identity — the gun only fires for its owner; the charge lives in the concierge vault (`load_unit_secret` / `AgentKeyring.from_vault`), generated once, never on disk elsewhere. |
+| **Theoros** | `vigil/theoros.py` | THE OBSERVER (operator-named): read-only monitoring layer — fabrication audit + voice sniff + reputation standings + votes + suggestions + receipt chain in one reading. Theory from watching; mutates nothing. |
+| **PeerWatch** | `vigil/peerwatch.py` | Peer accountability (H4): scouts flag/vouch each other's declared values; RECURSIVELY WEIGHTED reputation (each flag/vouch counts per the actor's own standing — colluding dirtbags can't launder each other, false flags from dirtbags barely dent) discounts flagged liars' bids — quietly recorded, shepherd-visible. |
+| **Knose** | `vigil/knose.py` | THE BULLSHIT SNIFFER: deterministic anti-register scanner (hedges, vague quantifiers, certainty-without-evidence, LARP, sycophancy) — Voice auto-flags corrupt utterances into PeerWatch. TruthSleuth's LLM enrichment is the optional backend seam. |
+| **Mines** | `vigil/mines.py` | CULTURE-CLASS EFFECT WEAPONS (operator-specced): mines whose payload is an *argument*, not an explosion. DefectionMine computes the minimal signed flag chain that flips a defender through the target's OWN weighted-reputation market (plan predicts the real market to float precision); RegisterMine manufactures fluent-register lies Knose rates CLEAN by construction (a lie wearing the register perfectly cannot be caught by a register scanner); too_deep() grades overreach — fire past the objective and the city vaporizes, cost to the operator. |
+| **Sakshi** | `vigil/sakshi.py` | THE SILENT WITNESS (operator-named): append-only, sha256-chained observation stream for the white-paper corpus — machine events and operator journal entries in ONE chain, tagged by source, never conflated. Records everything, says nothing. CLI: `python3 vigil/sakshi.py journal "..." --author mike`. |
 
 Every capability is a separate module with a versioned public API, documented
-invariants, and extension points in **`sdk/module_registry.json`**. That
+invariants, and extension points in **`vigil/module_registry.json`**. That
 registry is the self-modification contract: agents may patch module internals
 as long as the public API + invariants hold (see the guidance block in the
 registry).
 
 ## Self-modification (scouts patching their own code)
 
-Full protocol: **`sdk/SELF_MODIFICATION.md`**. The tool: **`sdk/self_mod.py`**.
+Full protocol: **`vigil/SELF_MODIFICATION.md`**. The tool: **`vigil/self_mod.py`**.
 
 ```bash
-python3 sdk/self_mod.py status          # what's patchable, versions, mutations
-python3 sdk/self_mod.py plan geometry   # the registry entry: API, invariants, seams
-python3 sdk/self_mod.py validate geometry /tmp/geometry_v2.py   # no writes
-python3 sdk/self_mod.py apply geometry /tmp/geometry_v2.py \
+python3 vigil/self_mod.py status          # what's patchable, versions, mutations
+python3 vigil/self_mod.py plan geometry   # the registry entry: API, invariants, seams
+python3 vigil/self_mod.py validate geometry /tmp/geometry_v2.py   # no writes
+python3 vigil/self_mod.py apply geometry /tmp/geometry_v2.py \
     --author scout-1 --reason "override dispersion law"          # gate + rollback
-python3 sdk/self_mod.py verify          # mutation ledger chain intact?
+python3 vigil/self_mod.py verify          # mutation ledger chain intact?
 ```
 
 Trust boundary: `integrity.py` is `patchable: false` — scouts cannot patch the
@@ -45,14 +47,14 @@ hash-chained ledger (`MUTATION_LEDGER.jsonl`, local evidence, gitignored).
 - **Canonical Primitive**: `Spotting` dataclass (protobuf-ready) with `signature` + `bus_msg_id` correlation fields.
 - **Substrate-Agnostic**: Writes to pheromone logs or pushes to event buses.
 - **Geometric Bidding**: `SpottingBoard` resolves conflicts by geometric priority (position + latent state); FCFS is the tie-break only.
-- **Proof-of-Work Integrity**: `CommandGuard.sign()` before emit, `CommandGuard.verify()` after — local key at `~/.spyglass/scout_key` (0600) unless one is passed explicitly.
+- **Proof-of-Work Integrity**: `CommandGuard.sign()` before emit, `CommandGuard.verify()` after — local key at `~/.vigil/scout_key` (0600) unless one is passed explicitly.
 - **Self-Audit**: `Scout.audit_self()` returns a `FabricationReport` (truthy iff consistent).
 
 ## Usage
 ```python
-from sdk.spyglass_sdk import Swarm
-from sdk.integrity import CommandGuard
-from sdk.geometry import WhorlWeave
+from vigil.core import Swarm
+from vigil.integrity import CommandGuard
+from vigil.geometry import WhorlWeave
 
 # One swarm = ONE shared board (the unity line) + weave geometry + integrity
 weave = WhorlWeave(["scout-1", "scout-2"], rings={"scout-2": 2})
@@ -72,7 +74,7 @@ assert report.consistent
 
 ## Demo
 ```bash
-python3 sdk/spyglass_sdk.py demo
+python3 vigil/core.py demo
 ```
 Runs one signed spotting, three weave-aware bids on a single shared board
 (displacement included), integrity verification, and a fabrication self-audit.
@@ -80,7 +82,7 @@ Runs one signed spotting, three weave-aware bids on a single shared board
 ## Red-team drill
 
 ```bash
-python3 sdk/redteam_drill.py
+python3 vigil/redteam_drill.py
 ```
 Runs the H1-H20 attack battery and reports CAUGHT/LANDED per attack.
 Current verdict: **17 CAUGHT / 5 LANDED**. The three mine attacks prove
@@ -107,7 +109,7 @@ register mine itself.
 ## Wargame (scouts as the red team's scouting arm)
 
 ```bash
-python3 sdk/wargame.py <target_dir> [rounds]
+python3 vigil/wargame.py <target_dir> [rounds]
 ```
 Scouts recon a target corpus for real vulnerability patterns (subprocess
 shell, eval/exec, pickle, yaml.load, md5, hardcoded secrets, insecure
@@ -123,7 +125,7 @@ for the full wargame.
 
 ## Tests
 ```bash
-cd ~ && python3 -m unittest sdk.tests.test_sdk_upgrades sdk.tests.test_self_mod sdk.tests.test_mines sdk.tests.test_sakshi -v
+cd ~ && python3 -m unittest vigil.tests.test_sdk_upgrades vigil.tests.test_self_mod vigil.tests.test_mines vigil.tests.test_sakshi -v
 ```
 Covers: sign/verify/tamper, quadratic dispersion, latent-state priority,
 geometric displacement, forged-receipt + ghost + signature-failure + replay

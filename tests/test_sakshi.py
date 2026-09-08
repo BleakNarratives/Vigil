@@ -1,5 +1,5 @@
 """
-Tests for Sakshi — the silent witness (sdk/sakshi.py).
+Tests for Sakshi — the silent witness (vigil/sakshi.py).
 
 Covers:
   1. append-only chain: records link by sha256, genesis prefix
@@ -15,7 +15,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from sdk.sakshi import entries, export_paper, record, verify
+from vigil.sakshi import entries, export_paper, record, verify
 
 
 class SakshiChainTests(unittest.TestCase):

@@ -2,8 +2,8 @@
 import unittest
 from unittest.mock import patch, MagicMock
 import requests
-from sdk.equinex_bridge.client import EquiNexClient
-from sdk.equinex_bridge.exceptions import AuthenticationError, EquiNexException
+from vigil.equinex_bridge.client import EquiNexClient
+from vigil.equinex_bridge.exceptions import AuthenticationError, EquiNexException
 
 class TestEquiNexClient(unittest.TestCase):
 

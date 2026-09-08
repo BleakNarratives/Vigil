@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-spyglass keyring.py — AgentKeyring: RoboCop key custody (H1).
+vigil keyring.py — AgentKeyring: RoboCop key custody (H1).
 
 RoboCop's gun only fired for Alex Murphy — its DNA, plus a specific charge
 from the unit. Same idea here: the swarm's verification key is not one
@@ -48,14 +48,14 @@ from pathlib import Path
 from typing import Optional
 
 try:
-    from sdk.integrity import CommandGuard
+    from vigil.integrity import CommandGuard
 except ImportError:
     try:
         from integrity import CommandGuard
     except ImportError:  # pragma: no cover - degraded mode
         CommandGuard = None
 
-DNA_NAMESPACE = b"spyglass-agent-key-v1"
+DNA_NAMESPACE = b"vigil-agent-key-v1"
 
 
 def derive_agent_key(unit_secret: bytes, agent_id: str,
@@ -135,14 +135,14 @@ class AgentKeyring:
         """Issue the agent's signing guard at birth. The agent receives a
         CommandGuard holding ONLY its derived key — never the unit secret."""
         if CommandGuard is None:
-            raise RuntimeError("CommandGuard unavailable (sdk/integrity.py missing)")
+            raise RuntimeError("CommandGuard unavailable (vigil/integrity.py missing)")
         return CommandGuard(key=derive_agent_key(self._unit_secret, agent_id, dna))
 
     def verify_guard(self, agent_id: str, dna: Optional[str] = None):
         """Shepherd-side guard for verifying an agent's signatures. Derives
         the SAME key the agent was issued — the gun only fires for its owner."""
         if CommandGuard is None:
-            raise RuntimeError("CommandGuard unavailable (sdk/integrity.py missing)")
+            raise RuntimeError("CommandGuard unavailable (vigil/integrity.py missing)")
         return CommandGuard(key=derive_agent_key(self._unit_secret, agent_id, dna))
 
     def verify_signature(self, agent_id: str, spotting: object,

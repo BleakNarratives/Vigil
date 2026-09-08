@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-sdk/self_mod.py — self-modification tool for swarm scouts.
+vigil/self_mod.py — self-modification tool for swarm scouts.
 
 The SAFE way for a scout to patch its own modules. Full protocol:
-sdk/SELF_MODIFICATION.md. The trust boundary is enforced here: modules
+vigil/SELF_MODIFICATION.md. The trust boundary is enforced here: modules
 marked `patchable: false` in module_registry.json are OUT OF SCOPE and
 self_mod refuses them outright — no argument overrides that.
 
@@ -54,7 +54,7 @@ LEDGER_FILE = "MUTATION_LEDGER.jsonl"
 BACKUP_DIR = "backups"
 GENESIS = "GENESIS"
 
-DEFAULT_TEST_CMD = "python3 -m unittest sdk.tests.test_sdk_upgrades"
+DEFAULT_TEST_CMD = "python3 -m unittest vigil.tests.test_sdk_upgrades"
 
 
 class SelfModError(Exception):
@@ -83,7 +83,7 @@ def find_module(registry: dict, name: str) -> dict:
 def module_path(root: Path, entry: dict) -> Path:
     """Resolve a registry path against the SDK root. Registry paths are
     root-relative ("geometry.py"); tolerate repo-relative legacy values
-    ("sdk/geometry.py") by stripping the root dir name."""
+    ("vigil/geometry.py") by stripping the root dir name."""
     path = root / entry["path"]
     if not path.exists() and "/" in entry["path"]:
         alt = root / Path(entry["path"]).name
@@ -204,7 +204,7 @@ def validate_candidate(root: Path, registry: dict, entry: dict,
         return False, f"syntax error: {e}"
 
     # import smoke — stage the candidate UNDER ITS REAL MODULE NAME alongside
-    # its sibling modules (spyglass_sdk imports integrity/fabrication/geometry
+    # its sibling modules (core imports integrity/fabrication/geometry
     # via fallback), then import it in isolation.
     try:
         with tempfile.TemporaryDirectory() as tmp:

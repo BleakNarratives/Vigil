@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-spyglass theoros.py — THEOROS: the observer.
+vigil theoros.py — THEOROS: the observer.
 
 From Greek *theoros*: the spectator sent to observe — the root of
 "theory". Theoros is the face of the monitoring layer: it watches the
@@ -34,7 +34,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 try:
-    from sdk.fabrication import FabricationDetector
+    from vigil.fabrication import FabricationDetector
 except ImportError:
     try:
         from fabrication import FabricationDetector
@@ -42,7 +42,7 @@ except ImportError:
         FabricationDetector = None
 
 try:
-    from sdk.knose import Knose
+    from vigil.knose import Knose
 except ImportError:
     try:
         from knose import Knose
@@ -50,7 +50,7 @@ except ImportError:
         Knose = None
 
 try:
-    from sdk.integrity import CommandGuard
+    from vigil.integrity import CommandGuard
 except ImportError:
     try:
         from integrity import CommandGuard

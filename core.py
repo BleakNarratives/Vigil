@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
 """
-spyglass_sdk.py — Scout-Spotter SDK.
+core.py — Vigil: the canonical scout surface (renamed from spyglass_sdk).
 A substrate for swarm agents to spot, bid, claim, and report.
 Zero-dependency core (stdlib only) + optional pheromone/bus integration.
 
 Since 2026-09-08 the SDK is a three-layer substrate, not a skeleton:
 
-  1. INTEGRITY   — sdk/integrity.py   CommandGuard signs every pheromone with
+  1. INTEGRITY   — vigil/integrity.py   CommandGuard signs every pheromone with
                    a local HMAC key BEFORE emission (proof-of-work), so the
                    log can be verified against tampering/fabrication.
-  2. GEOMETRY    — sdk/geometry.py    WhorlWeave gives every scout a weave
+  2. GEOMETRY    — vigil/geometry.py    WhorlWeave gives every scout a weave
                    position; bid() computes confidence/strength from that
                    geometry (quadratic dispersion) + latent state (health,
                    resource cost, mission priority) instead of FCFS arrival.
-  3. FABRICATION — sdk/fabrication.py FabricationDetector cross-checks the
+  3. FABRICATION — vigil/fabrication.py FabricationDetector cross-checks the
                    scout's own pheromone log against the SyntaxEventBus log
                    for consistency (matched / unmatched / ghosts / sig fails).
 
 Every capability is a separate module with a versioned public API and
-documented extension points — see sdk/module_registry.json. Agents may patch
+documented extension points — see vigil/module_registry.json. Agents may patch
 internals without breaking call sites as long as the public API + invariants
 hold (that is the self-modification contract).
 
@@ -40,7 +40,7 @@ from typing import Dict, Any, List, Optional
 
 # Optional capability modules — degrade gracefully when unavailable.
 try:
-    from sdk.integrity import CommandGuard, IntegrityError, SPOTTING_EMBED_KEY
+    from vigil.integrity import CommandGuard, IntegrityError, SPOTTING_EMBED_KEY
 except ImportError:
     try:
         from integrity import CommandGuard, IntegrityError, SPOTTING_EMBED_KEY
@@ -50,7 +50,7 @@ except ImportError:
         SPOTTING_EMBED_KEY = "_spotting"
 
 try:
-    from sdk.geometry import WhorlWeave, WeavePosition
+    from vigil.geometry import WhorlWeave, WeavePosition
 except ImportError:
     try:
         from geometry import WhorlWeave, WeavePosition
@@ -59,7 +59,7 @@ except ImportError:
         WeavePosition = None
 
 try:
-    from sdk.fabrication import FabricationDetector, FabricationReport
+    from vigil.fabrication import FabricationDetector, FabricationReport
 except ImportError:
     try:
         from fabrication import FabricationDetector, FabricationReport
@@ -68,7 +68,7 @@ except ImportError:
         FabricationReport = None
 
 try:
-    from sdk.receipts import ReceiptLedger
+    from vigil.receipts import ReceiptLedger
 except ImportError:
     try:
         from receipts import ReceiptLedger
@@ -76,7 +76,7 @@ except ImportError:
         ReceiptLedger = None
 
 try:
-    from sdk.peerwatch import PeerWatch
+    from vigil.peerwatch import PeerWatch
 except ImportError:
     try:
         from peerwatch import PeerWatch
@@ -84,7 +84,7 @@ except ImportError:
         PeerWatch = None
 
 try:
-    from sdk.voice import Voice
+    from vigil.voice import Voice
 except ImportError:
     try:
         from voice import Voice
@@ -392,13 +392,13 @@ class Scout:
     def speak(self, topic: str, message: str) -> Dict[str, Any]:
         """Utterance on the corkboard, signed by this scout."""
         if self.voice is None:
-            raise RuntimeError("no Voice lane (sdk/voice.py missing)")
+            raise RuntimeError("no Voice lane (vigil/voice.py missing)")
         return self.voice.speak(self.agent_id, topic, message)
 
     def vote(self, motion: str, choice: str, reason: str = "") -> Dict[str, Any]:
         """Ballot on a motion (aye/nay/abstain), signed by this scout."""
         if self.voice is None:
-            raise RuntimeError("no Voice lane (sdk/voice.py missing)")
+            raise RuntimeError("no Voice lane (vigil/voice.py missing)")
         return self.voice.vote(self.agent_id, motion, choice, reason)
 
     def suggest(self, module: str, reason: str,
@@ -407,7 +407,7 @@ class Scout:
         """Suggestion-box entry; candidate_path routes into the
         self-modification review flow."""
         if self.voice is None:
-            raise RuntimeError("no Voice lane (sdk/voice.py missing)")
+            raise RuntimeError("no Voice lane (vigil/voice.py missing)")
         return self.voice.suggest(self.agent_id, module, reason,
                                   candidate_path, patch_summary)
 
@@ -439,7 +439,7 @@ class Scout:
         """Cross-check own pheromone log against the bus log (fabrication
         detection). Returns a FabricationReport; truthy iff consistent."""
         if FabricationDetector is None:
-            raise RuntimeError("FabricationDetector unavailable (sdk/fabrication.py missing)")
+            raise RuntimeError("FabricationDetector unavailable (vigil/fabrication.py missing)")
         detector = FabricationDetector(
             store=self.sink.store, bus=self.sink.event_bus,
             guard=self.sink.guard, agent_id=self.agent_id,
@@ -449,15 +449,15 @@ class Scout:
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: spyglass_sdk.py [demo]")
+        print("Usage: core.py [demo]")
         sys.exit(1)
 
     if sys.argv[1] == "demo":
-        print("Running Spyglass SDK Demo (integrity + geometry + fabrication)...")
+        print("Running Vigil SDK Demo (integrity + geometry + fabrication)...")
 
         # The SDK's ecosystem deps (pheromone_store.py, SyntaxIntelligence/)
         # live in the home layout — make sure they resolve even when this
-        # file is run directly from sdk/.
+        # file is run directly from vigil/.
         import os
         home = os.path.expanduser("~")
         if home not in sys.path:

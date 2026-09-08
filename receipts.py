@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-spyglass receipts.py — ReceiptLedger: durable bus-correlation receipts.
+vigil receipts.py — ReceiptLedger: durable bus-correlation receipts.
 
 The SyntaxEventBus message log is IN-MEMORY: restart the process and every
 surviving pheromone's bus correlation evaporates, turning honest records

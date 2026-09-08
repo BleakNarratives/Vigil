@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-spyglass wargame.py — ScoutWargame: the red team's scouting arm, live.
+vigil wargame.py — ScoutWargame: the red team's scouting arm, live.
 
 Scouts do the recon (spot vulnerabilities in a target corpus), bid on
 findings geometrically on ONE shared board, the red team executes the won
@@ -13,7 +13,7 @@ primitives (Swarm, SpottingBoard, Voice, PeerWatch, Knose, Theoros). The
 scanner is deterministic and stdlib-only; swap it for Code-City's real
 attack modules by replacing `scan()`.
 
-Run:  python3 sdk/wargame.py <target_dir> [rounds]
+Run:  python3 vigil/wargame.py <target_dir> [rounds]
 """
 import hashlib
 import os
@@ -25,12 +25,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # home root
 
-from sdk.spyglass_sdk import Spotting, PheromoneSink, Scout, Swarm, phm_id  # noqa: E402
-from sdk.integrity import CommandGuard  # noqa: E402
-from sdk.geometry import WhorlWeave  # noqa: E402
-from sdk.peerwatch import PeerWatch  # noqa: E402
-from sdk.theoros import Theoros  # noqa: E402
-from sdk.keyring import AgentKeyring  # noqa: E402
+from vigil.core import Spotting, PheromoneSink, Scout, Swarm, phm_id  # noqa: E402
+from vigil.integrity import CommandGuard  # noqa: E402
+from vigil.geometry import WhorlWeave  # noqa: E402
+from vigil.peerwatch import PeerWatch  # noqa: E402
+from vigil.theoros import Theoros  # noqa: E402
+from vigil.keyring import AgentKeyring  # noqa: E402
 
 RED_AGENTS = ("viper", "ravage", "wrapper")
 BLUE_AGENTS = ("equinex", "lidarr", "bastion")
@@ -119,7 +119,7 @@ class ScoutWargame:
         self.mine_cost = 0.0
 
     def _make_swarm(self) -> Swarm:
-        tmp = tempfile.mkdtemp(prefix="spyglass_wargame_")
+        tmp = tempfile.mkdtemp(prefix="vigil_wargame_")
         from pheromone_store import PheromoneStore
         store = PheromoneStore(store_path=os.path.join(tmp, "pheromones.jsonl"))
         bus = FakeBus()
@@ -154,7 +154,7 @@ class ScoutWargame:
                 # too deep and vaporizes the objective.
                 if rnd == 1:
                     try:
-                        from sdk.mines import deploy_mine
+                        from vigil.mines import deploy_mine
                         target = "bastion"  # the immovable rollback — most trusted
                         mine = deploy_mine(watch, target,
                                            flaggers=list(RED_AGENTS),
@@ -237,7 +237,7 @@ class ScoutWargame:
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python3 sdk/wargame.py <target_dir> [rounds]")
+        print("Usage: python3 vigil/wargame.py <target_dir> [rounds]")
         sys.exit(1)
     target = sys.argv[1]
     rounds = int(sys.argv[2]) if len(sys.argv) > 2 else 3
@@ -255,7 +255,7 @@ def main():
               f"NET {result['net_score']} pts")
         print(f"Blue cohesion after mines: {result['cohesion']:.2f}")
     try:
-        from sdk.sakshi import record
+        from vigil.sakshi import record
         record("wargame",
                f"engagement closed: {result['score']} pts, "
                f"{result['findings']} findings, {result['blocks']} blue blocks, "

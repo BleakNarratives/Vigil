@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-spyglass voice.py — Voice: the swarm's out-loud lane (B1).
+vigil voice.py — Voice: the swarm's out-loud lane (B1).
 
 A scout that cannot express itself, vote, or propose is a sensor, not an
 agent. This module gives every scout three channels:
@@ -47,7 +47,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 try:
-    from sdk.integrity import CommandGuard
+    from vigil.integrity import CommandGuard
 except ImportError:
     try:
         from integrity import CommandGuard
@@ -55,7 +55,7 @@ except ImportError:
         CommandGuard = None
 
 try:
-    from sdk.knose import Knose
+    from vigil.knose import Knose
 except ImportError:
     try:
         from knose import Knose

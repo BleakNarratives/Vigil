@@ -1,5 +1,5 @@
 """
-Tests for Culture-class effect weapons (sdk/mines.py).
+Tests for Culture-class effect weapons (vigil/mines.py).
 
 Covers:
   1. DefectionMine.plan() — computed from the REAL PeerWatch market math
@@ -16,11 +16,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from sdk.knose import Knose
-from sdk.peerwatch import PeerWatch, CONFIRM_REWARD
-from sdk.mines import (DefectionMine, RegisterMine, too_deep, deploy_mine,
-                       DEFECT_THRESHOLD, VAPORIZE_THRESHOLD)
-from sdk.integrity import CommandGuard
+from vigil.knose import Knose
+from vigil.peerwatch import PeerWatch, CONFIRM_REWARD
+from vigil.mines import (DefectionMine, RegisterMine, too_deep, deploy_mine,
+                         DEFECT_THRESHOLD, VAPORIZE_THRESHOLD)
+from vigil.integrity import CommandGuard
 
 
 class MinesTests(unittest.TestCase):

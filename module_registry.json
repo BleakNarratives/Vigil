@@ -6,7 +6,7 @@
     "Never change a public API signature without updating every caller in this SDK and the README examples.",
     "Invariants are non-negotiable: breaking one voids the integrity/fabrication guarantees, not just the tests.",
     "Additive changes (new methods, new fields with defaults) are always safe.",
-    "Run the test gate (default: `python3 -m unittest sdk.tests.test_sdk_upgrades`) — `python3 sdk/self_mod.py apply` does this automatically and rolls back on red.",
+    "Run the test gate (default: `python3 -m unittest vigil.tests.test_sdk_upgrades`) — `python3 vigil/self_mod.py apply` does this automatically and rolls back on red.",
     "Signature metadata (signature, bus_msg_id) must never be included in the canonical hash — see integrity._SIGNATURE_FIELDS.",
     "SPOTTING_EMBED_KEY (_spotting) is reserved — never use it for user data.",
     "Trust modules (patchable:false) are enforced by filesystem ownership, not by this file."
@@ -197,9 +197,9 @@
       ]
     },
     {
-      "name": "spyglass_sdk",
-      "path": "spyglass_sdk.py",
-      "role": "canonical surface: Spotting, PheromoneSink, Scout, Swarm, SpottingBoard — wires the three capability modules",
+      "name": "core",
+      "path": "core.py",
+      "role": "canonical surface (renamed spyglass_sdk -> core in the Vigil rename): Spotting, PheromoneSink, Scout, Swarm, SpottingBoard — wires the capability modules",
       "version": "1",
       "patchable": true,
       "approval": "required",

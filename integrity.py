@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-spyglass integrity.py — CommandGuard: proof-of-work / integrity layer.
+vigil integrity.py — CommandGuard: proof-of-work / integrity layer.
 
 The CommandGuard hashes the command path (the full canonical Spotting) and
 signs it with a LOCAL key BEFORE the pheromone is emitted. Anyone can later
@@ -13,7 +13,7 @@ Design notes (for agent self-modification):
     fields, so bus correlation metadata can be attached after signing without
     invalidating the record.
   * Key handling is pluggable: pass an explicit `key` (bytes) or a
-    `key_path`. The default path is ~/.spyglass/scout_key, created 0600 on
+    `key_path`. The default path is ~/.vigil/scout_key, created 0600 on
     first use. Swap in asymmetric signing (ed25519) by overriding sign() /
     verify() — call sites never change.
   * Zero dependencies: stdlib hashlib + hmac + json only.
@@ -46,7 +46,7 @@ SPOTTING_EMBED_KEY = "_spotting"
 
 VERSION = "1"
 
-DEFAULT_KEY_DIR = Path("~/.spyglass").expanduser()
+DEFAULT_KEY_DIR = Path("~/.vigil").expanduser()
 DEFAULT_KEY_PATH = DEFAULT_KEY_DIR / "scout_key"
 
 
@@ -146,7 +146,7 @@ class CommandGuard:
     """Hashes the command path and signs it with a local key.
 
     Usage:
-        guard = CommandGuard()                       # auto key at ~/.spyglass/scout_key
+        guard = CommandGuard()                       # auto key at ~/.vigil/scout_key
         guard = CommandGuard(key=b"shared-secret")   # explicit key (tests / fleet)
         guard.sign(spotting)                         # attach signature BEFORE emit
         guard.verify(spotting)                       # True/False

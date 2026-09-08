@@ -49,8 +49,8 @@ Read **`module_registry.json`** first. It is the map:
 Quick check:
 
 ```bash
-python3 sdk/self_mod.py status          # which modules are patchable, last mutations
-python3 sdk/self_mod.py plan geometry   # the full entry: API, invariants, seams
+python3 vigil/self_mod.py status          # which modules are patchable, last mutations
+python3 vigil/self_mod.py plan geometry   # the full entry: API, invariants, seams
 ```
 
 ## 4. The safe patch flow (four phases)
@@ -69,7 +69,7 @@ A scout never edits a live module directly. It works in candidates.
 
 ### PHASE 2 — VALIDATE (no writes)
 ```bash
-python3 sdk/self_mod.py validate geometry /tmp/geometry_v2.py
+python3 vigil/self_mod.py validate geometry /tmp/geometry_v2.py
 ```
 The tool checks, in order:
 - **Trust gate** — `patchable: false` → hard refusal, exit 1.
@@ -82,10 +82,10 @@ A green validate means "safe to attempt." It does NOT mean "correct."
 
 ### PHASE 3 — APPLY (backup → swap → gate → rollback → record)
 ```bash
-python3 sdk/self_mod.py apply geometry /tmp/geometry_v2.py \
+python3 vigil/self_mod.py apply geometry /tmp/geometry_v2.py \
     --author scout-1 --reason "override dispersion law per mission profile"
-# approval-required modules (e.g. spyglass_sdk):
-python3 sdk/self_mod.py apply spyglass_sdk /tmp/spyglass_v2.py \
+# approval-required modules (e.g. core):
+python3 vigil/self_mod.py apply core /tmp/core_v2.py \
     --author scout-1 --reason "..." --approved
 ```
 What apply does, in order:
@@ -105,7 +105,7 @@ What apply does, in order:
 - The mutation ledger is append-only and **hash-chained**: every entry carries
   the sha256 of the previous line. Verify at any time:
   ```bash
-  python3 sdk/self_mod.py verify
+  python3 vigil/self_mod.py verify
   ```
   A rewritten or spliced entry breaks the chain and reports **TAMPER** with
   the offending line. This is the same walk-the-chain discipline as the
@@ -134,7 +134,7 @@ What apply does, in order:
 
 ## 6. Approval policy
 
-- `approval: required` (currently `spyglass_sdk` — the core surface) — the
+- `approval: required` (currently `core` — the core surface) — the
   apply refuses without `--approved`. Treat `--approved` as what it is: a
   deliberate tripwire forcing the scout to consciously claim shepherd consent.
   The REAL control is that the shepherd owns the file and can revert it, and
@@ -164,8 +164,8 @@ claims otherwise is selling you something.
 
 ```bash
 cd ~/sdk
-python3 sdk/self_mod.py verify          # chain intact?
-python3 sdk/self_mod.py status          # what moved, versions
+python3 vigil/self_mod.py verify          # chain intact?
+python3 vigil/self_mod.py status          # what moved, versions
 tail -5 MUTATION_LEDGER.jsonl           # authors + reasons readable?
 git diff <module>                       # what actually changed
 ```

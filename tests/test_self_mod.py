@@ -1,5 +1,5 @@
 """
-Tests for sdk/self_mod.py — the scout self-modification gatekeeper.
+Tests for vigil/self_mod.py — the scout self-modification gatekeeper.
 
 Hermetic: each test builds a temp SDK root (copies of the modules +
 registry) and runs self_mod.py against it with --root, so the real SDK
@@ -17,7 +17,7 @@ from pathlib import Path
 SDK_ROOT = Path(__file__).resolve().parent.parent
 SELF_MOD = SDK_ROOT / "self_mod.py"
 
-MODULES = ["integrity.py", "geometry.py", "fabrication.py", "spyglass_sdk.py"]
+MODULES = ["integrity.py", "geometry.py", "fabrication.py", "core.py"]
 
 APPLY_ARGS = ["--author", "scout-1", "--reason", "test patch"]
 
@@ -132,8 +132,8 @@ class SelfModTestCase(unittest.TestCase):
         self.assertIn("--reason", proc.stdout)
 
     def test_apply_approval_required_tripwire(self):
-        cand = self.candidate("spyglass_sdk.py")
-        proc = run_self_mod(self.tmp, "apply", "spyglass_sdk", str(cand),
+        cand = self.candidate("core.py")
+        proc = run_self_mod(self.tmp, "apply", "core", str(cand),
                             test_cmd="true", apply_args=APPLY_ARGS)
         self.assertEqual(proc.returncode, 1)
         self.assertIn("approval", proc.stdout)

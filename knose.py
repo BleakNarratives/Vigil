@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-spyglass knose.py — KNOSE: The Bullshit Sniffer.
+vigil knose.py — KNOSE: The Bullshit Sniffer.
 
 TruthSleuth's Ba declares the intent (rhetoric analysis, deception
 patterns, deception_risk_score 0.0-1.0) and KNOSE is the bullshit sniffer.
