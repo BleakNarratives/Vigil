@@ -65,8 +65,28 @@
       ],
       "invariants": [
         "the bus msg_id is assigned by the bus under lock — a receipt cannot be invented without a matching publish",
-        "report.consistent is False iff unmatched, ghost, or signature failures exist",
-        "audit() never mutates the store or the bus"
+        "a durable receipt is authoritative correlation (H5); the legacy bus_msg_id embed is fallback-only",
+        "report.consistent is False iff unmatched, ghost, signature failures, field mismatches, replays, or unsigned claims exist",
+        "audit() never mutates the store, the bus, or the receipts ledger"
+      ]
+    },
+    {
+      "name": "receipts",
+      "path": "receipts.py",
+      "role": "durable spotting_id -> bus_msg_id correlation receipts (survives bus restart; enables persist-before-publish)",
+      "version": "1",
+      "patchable": true,
+      "approval": "none",
+      "patch_policy": "scout-patchable. Keep record()/lookup() semantics; test gate must stay green; ledger entry with author+reason required. Swapping the backing store (sqlite/MCP) is the intended seam.",
+      "public_api": ["ReceiptLedger(path)", "ReceiptLedger.record(spotting_id, bus_msg_id)", "ReceiptLedger.lookup(spotting_id)", "ReceiptLedger.all_ids()"],
+      "extension_points": [
+        "record()/lookup() — swap the jsonl backing for sqlite or MCP transport",
+        "lookup() — add index caching if the ledger grows hot"
+      ],
+      "invariants": [
+        "record() is append-only — never rewrite a receipt",
+        "lookup() returns the MOST RECENT receipt for a spotting id",
+        "memory-only mode (path=None) is honestly non-durable and must say so"
       ]
     },
     {
@@ -84,8 +104,8 @@
         "Swarm.add_scout() — lifecycle hooks (spawn/kill/retire a scout) while keeping the single shared board"
       ],
       "invariants": [
-        "sink.report() signs before it publishes or persists",
-        "store record payload always embeds signature + bus_msg_id when guard/bus are present",
+        "sink.report() order: sign -> PERSIST -> publish -> receipt (persist-first, H7)",
+        "store record payload embeds signature + correlation (spotting id); bus_msg_id lives in the receipt ledger (H5), never the record",
         "Spotting.to_dict() is backward compatible: old fields unchanged, new fields additive",
         "BidResult is truthy iff accepted (old `if board.bid(s)` callers keep working)",
         "SPOTTING_EMBED_KEY payload nesting is preserved (integrity verification depends on it)"

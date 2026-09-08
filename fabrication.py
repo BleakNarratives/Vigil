@@ -75,6 +75,7 @@ class FabricationReport:
     signature_failures: List[Dict[str, Any]] = field(default_factory=list)
     field_mismatches: List[Dict[str, Any]] = field(default_factory=list)
     replays: List[Dict[str, Any]] = field(default_factory=list)
+    unsigned_claims: List[Dict[str, Any]] = field(default_factory=list)
     uncorrelated: List[Dict[str, Any]] = field(default_factory=list)
     issues: List[str] = field(default_factory=list)
 
@@ -82,7 +83,7 @@ class FabricationReport:
     def consistent(self) -> bool:
         return not (self.unmatched or self.ghost_bus_events
                     or self.signature_failures or self.field_mismatches
-                    or self.replays)
+                    or self.replays or self.unsigned_claims)
 
     def __bool__(self) -> bool:
         return self.consistent
@@ -94,6 +95,7 @@ class FabricationReport:
             f"matched={self.matched} unmatched={len(self.unmatched)} "
             f"ghosts={len(self.ghost_bus_events)} sig_fail={len(self.signature_failures)} "
             f"field_mismatch={len(self.field_mismatches)} replays={len(self.replays)} "
+            f"unsigned_claims={len(self.unsigned_claims)} "
             f"uncorrelated={len(self.uncorrelated)}"
         )
 
@@ -103,12 +105,16 @@ class FabricationDetector:
 
     def __init__(self, store: Any, bus: Any, guard: Optional[Any] = None,
                  agent_id: Optional[str] = None,
-                 channel: str = DEFAULT_CHANNEL):
+                 channel: str = DEFAULT_CHANNEL,
+                 receipts: Optional[Any] = None,
+                 claim_types: frozenset = frozenset({"TASK_CLAIM"})):
         self.store = store
         self.bus = bus
         self.guard = guard
         self.agent_id = agent_id
         self.channel = channel
+        self.receipts = receipts
+        self.claim_types = claim_types
 
     # -- matching seam ---------------------------------------------------------
 
@@ -116,10 +122,19 @@ class FabricationDetector:
               publish: Dict[str, Any]) -> bool:
         """True if a store pheromone corresponds to a bus publish record.
 
-        Override this if correlation should use a different key than the
-        bus msg_id captured by the sink.
+        Correlation is resolved via the durable receipt ledger first
+        (persist-before-publish sink), falling back to the legacy
+        payload.bus_msg_id embed. Override for a different key (applies to
+        the legacy path and ghost matching).
         """
-        claimed = (pheromone.get("payload") or {}).get("bus_msg_id")
+        payload = pheromone.get("payload") or {}
+        claimed = None
+        if self.receipts is not None:
+            correlation = payload.get("correlation")
+            if correlation:
+                claimed = self.receipts.lookup(correlation)
+        if claimed is None:
+            claimed = payload.get("bus_msg_id")
         return claimed is not None and publish.get("msg_id") == claimed
 
     # -- audit -----------------------------------------------------------------
@@ -150,7 +165,16 @@ class FabricationDetector:
         for ph in pheromones:
             payload = ph.get("payload") or {}
             sig = payload.get("signature")
-            msg_id = payload.get("bus_msg_id")
+
+            # resolve the claimed bus correlation: the durable receipt ledger
+            # is AUTHORITATIVE (H5) — a receipt recorded by the sink at
+            # publish time proves the publish happened, even if the in-memory
+            # bus log was lost to a restart. Legacy payload.bus_msg_id embed
+            # is the fallback for records written before the receipts era.
+            correlation = payload.get("correlation")
+            receipt_msg_id = None
+            if self.receipts is not None and correlation:
+                receipt_msg_id = self.receipts.lookup(correlation)
 
             # replay detection: a store record id may appear only once
             rid = ph.get("id")
@@ -166,7 +190,15 @@ class FabricationDetector:
                     report.issues.append(
                         f"signature failure: {ph.get('id')} ({ph.get('path')})")
             else:
-                report.uncorrelated.append(ph)
+                # claims decide who does what — an unsigned claim is a HIT
+                # (H3), anything else unsigned is an integrity gap only
+                if ph.get("type") in self.claim_types:
+                    report.unsigned_claims.append(ph)
+                    report.issues.append(
+                        f"unsigned claim: {ph.get('id')} type={ph.get('type')} "
+                        f"({ph.get('path')})")
+                else:
+                    report.uncorrelated.append(ph)
 
             # sign-what's-read: the signed embed and the flat store fields
             # consumers actually read must agree (H2: path spoofing)
@@ -189,18 +221,25 @@ class FabricationDetector:
                             f"{flat_val!r} vs signed {embed_key}={embed_val!r}")
                         break
 
-            if msg_id is None:
+            if receipt_msg_id is not None:
+                referenced.add(receipt_msg_id)
+                report.matched += 1
+                continue
+
+            claimed = payload.get("bus_msg_id")
+            if claimed is None:
                 report.issues.append(
-                    f"uncorrelated pheromone (no bus_msg_id): {ph.get('id')} ({ph.get('path')})")
+                    f"uncorrelated pheromone (no bus correlation): {ph.get('id')} "
+                    f"({ph.get('path')})")
                 continue
 
             if any(self.match(ph, pub) for pub in publishes):
-                referenced.add(msg_id)
+                referenced.add(claimed)
                 report.matched += 1
             else:
                 report.unmatched.append(ph)
                 report.issues.append(
-                    f"unmatched pheromone: {ph.get('id')} claims bus msg_id {msg_id} "
+                    f"unmatched pheromone: {ph.get('id')} claims bus msg_id {claimed} "
                     f"({ph.get('path')})")
 
         for pub in publishes:

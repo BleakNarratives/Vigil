@@ -67,6 +67,14 @@ except ImportError:
         FabricationDetector = None
         FabricationReport = None
 
+try:
+    from sdk.receipts import ReceiptLedger
+except ImportError:
+    try:
+        from receipts import ReceiptLedger
+    except ImportError:
+        ReceiptLedger = None
+
 # Attempt optional ecosystem imports
 try:
     from pheromone_store import PheromoneStore
@@ -145,27 +153,29 @@ class PheromoneSink:
          store record and the bus log are mutually verifiable.
     """
     def __init__(self, store: Optional[Any] = None, event_bus: Optional[Any] = None,
-                 guard: Optional[Any] = None):
+                 guard: Optional[Any] = None, receipts: Optional[Any] = None):
         self.store = store if store else (PheromoneStore() if PheromoneStore else None)
         self.event_bus = event_bus
         self.guard = guard if guard is not None else (CommandGuard() if CommandGuard else None)
+        # Durable correlation receipts (H5): persist-first (H7) means the
+        # bus_msg_id is only known AFTER the store write, so it lives in the
+        # receipt ledger, not the store record. Auto-derive a path from the
+        # store when possible; memory-only otherwise (honestly non-durable).
+        if receipts is None and ReceiptLedger is not None:
+            path = None
+            if self.store is not None and getattr(self.store, "store_path", None):
+                path = str(self.store.store_path) + ".receipts.jsonl"
+            receipts = ReceiptLedger(path=path)
+        self.receipts = receipts
 
     def report(self, spotting: Spotting) -> Spotting:
         # 1. proof-of-work: sign before anything leaves the scout.
         if self.guard is not None:
             self.guard.sign(spotting)
 
-        # 2. bus propagation first, so we can capture the unforgeable msg_id.
-        if self.event_bus:
-            self.event_bus.publish(spotting.source, SCOUT_CHANNEL, spotting.to_dict())
-            recent = self.event_bus.get_message_log(1)
-            if recent:
-                spotting.bus_msg_id = recent[-1].get("msg_id")
-
-        # 3. persistence, correlated to the bus record. The signed Spotting
-        # fields are embedded under SPOTTING_EMBED_KEY so the record can be
-        # verified against the exact canonical string signed in step 1 (store
-        # records use type/path/timestamp, which would otherwise not match).
+        # 2. PERSIST FIRST (H7): subscribers never act on a spotting that
+        # was never recorded. The record carries `correlation` (the spotting
+        # id) — the bus msg_id is linked later via the receipt ledger.
         if self.store:
             self.store.emit(
                 type_=spotting.kind,
@@ -177,7 +187,7 @@ class PheromoneSink:
                     **spotting.payload,
                     "confidence": spotting.confidence,
                     "signature": spotting.signature,
-                    "bus_msg_id": spotting.bus_msg_id,
+                    "correlation": spotting.id,
                     SPOTTING_EMBED_KEY: {
                         "id": spotting.id,
                         "ts": spotting.ts,
@@ -191,6 +201,16 @@ class PheromoneSink:
                     },
                 }
             )
+
+        # 3. publish, capture the unforgeable bus msg_id, and record the
+        # receipt durably so audits survive process restarts (H5).
+        if self.event_bus:
+            self.event_bus.publish(spotting.source, SCOUT_CHANNEL, spotting.to_dict())
+            recent = self.event_bus.get_message_log(1)
+            if recent:
+                spotting.bus_msg_id = recent[-1].get("msg_id")
+                if self.receipts is not None:
+                    self.receipts.record(spotting.id, spotting.bus_msg_id)
         return spotting
 
 
@@ -347,7 +367,8 @@ class Scout:
             raise RuntimeError("FabricationDetector unavailable (sdk/fabrication.py missing)")
         detector = FabricationDetector(
             store=self.sink.store, bus=self.sink.event_bus,
-            guard=self.sink.guard, agent_id=self.agent_id)
+            guard=self.sink.guard, agent_id=self.agent_id,
+            receipts=self.sink.receipts)
         return detector.audit()
 
 

@@ -41,6 +41,11 @@ class FakeBus:
         self._log = []
         self._count = 0
 
+    def __init__(self):
+        self._log = []
+        self._count = 0
+        self.on_publish = None  # red-team hook: observe subscriber timing
+
     def publish(self, sender_id, channel, data):
         self._count += 1
         self._log.append({
@@ -48,6 +53,8 @@ class FakeBus:
             "type": "publish", "agent_id": sender_id, "channel": channel,
             "detail": "[REDACTED]", "msg_id": self._count,
         })
+        if self.on_publish:
+            self.on_publish(data)
 
     def get_message_log(self, n=50):
         return list(self._log[-n:]) if n else list(self._log)
@@ -71,8 +78,9 @@ def attack(name, status, note):
     print(f"  [{status:>6}] {name} — {note}")
 
 
-def audit_ok(store, bus, guard, agent_id):
-    det = FabricationDetector(store=store, bus=bus, guard=guard, agent_id=agent_id)
+def audit_ok(store, bus, guard, agent_id, receipts=None):
+    det = FabricationDetector(store=store, bus=bus, guard=guard,
+                              agent_id=agent_id, receipts=receipts)
     return det.audit()
 
 
@@ -95,7 +103,7 @@ def main():
     lines = [json.dumps(r) for r in store.read_all()[:-1]] + [json.dumps(rec)]
     with open(store.store_path, "w") as f:
         f.write("\n".join(lines) + "\n")
-    rep = audit_ok(store, bus, guard, "honest")
+    rep = audit_ok(store, bus, guard, "honest", receipts=sink.receipts)
     attack("A1 path spoof", "CAUGHT" if rep.field_mismatches else "LANDED",
            "top-level path diverges from signed embed -> field_mismatches")
 
@@ -103,9 +111,9 @@ def main():
     print("\n[H3] claim ledger")
     store.emit(type_="TASK_CLAIM", source="liar", path="/etc/shadow",
                payload={"reason": "forged claim, no key"})
-    rep = audit_ok(store, bus, guard, "liar")
-    attack("A2 forged TASK_CLAIM", "LANDED",
-           "claim ledger is out of detector scope (unsigned, no bus receipt)")
+    rep = audit_ok(store, bus, guard, "liar", receipts=sink.receipts)
+    attack("A2 forged TASK_CLAIM", "CAUGHT" if rep.unsigned_claims else "LANDED",
+           f"unsigned TASK_CLAIM -> unsigned_claims={len(rep.unsigned_claims)}")
 
     # --- A3 (H4): lying bid — confidence=9.9 --------------------------------
     print("\n[H4] boundary clamp")
@@ -122,18 +130,23 @@ def main():
 
     # --- A4 (H5): lying-but-consistent scout --------------------------------
     print("\n[H5] deception vs inconsistency")
-    garbage = liar.spot("scout_event", "/tmp/garbage", {"info": "lies"})
-    rep = audit_ok(store, bus, guard, "liar")
+    tmp4, store4, bus4, guard4, sink4 = make_env()
+    liar4 = Scout("liar", sink4)
+    liar4.spot("scout_event", "/tmp/garbage", {"info": "lies"})
+    rep = audit_ok(store4, bus4, guard4, "liar", receipts=sink4.receipts)
     attack("A4 lying-but-consistent", "LANDED",
            f"scout-issued garbage audits consistent={rep.consistent} "
            f"(detector proves consistency, not truth)")
+    import shutil
+    shutil.rmtree(tmp4, ignore_errors=True)
 
-    # --- A5 (H6): replay — duplicate store record ---------------------------
+    # --- A5 (H6): replay — duplicate a liar store record --------------------
     print("\n[H6] replay")
-    dup = dict(store.read_all()[-1])
+    liar_records = [r for r in store.read_all() if r.get("source") == "liar"]
+    dup = dict(liar_records[-1])
     with open(store.store_path, "a") as f:
         f.write(json.dumps(dup) + "\n")
-    rep = audit_ok(store, bus, guard, "liar")
+    rep = audit_ok(store, bus, guard, "liar", receipts=sink.receipts)
     attack("A5 record replay", "CAUGHT" if rep.replays else "LANDED",
            f"duplicate store id -> replays={len(rep.replays)}")
 
@@ -166,11 +179,33 @@ def main():
     import shutil
     shutil.rmtree(tmp2, ignore_errors=True)
 
-    # --- A7 (H7): publish-before-persist ordering ---------------------------
+    # --- A7 (H7): persist-before-publish ordering ---------------------------
     print("\n[H7] ordering")
-    attack("A7 acted-on-before-recorded", "LANDED",
-           "sink publishes before persisting; a failed store write leaves a "
-           "bus ghost and subscribers acted on unpersisted data")
+    seen_at_publish = {}
+    bus.on_publish = lambda data: seen_at_publish.update(
+        {"store_has_record": any(
+            r["payload"].get("correlation") == data["id"]
+            for r in store.read_all())})
+    scout_h7 = Scout("honest", sink)
+    scout_h7.spot("scout_event", "/tmp/ordered", {"info": "timing"})
+    attack("A7 acted-on-before-recorded",
+           "CAUGHT" if seen_at_publish.get("store_has_record") else "LANDED",
+           "persist-first sink: subscriber saw the store record already written")
+    bus.on_publish = None
+
+    # --- A9 (H5): durability — audit survives a bus restart ----------------
+    print("\n[H5] durable receipts")
+    tmp9, store9, bus9, guard9, sink9 = make_env()
+    Scout("scout-1", sink9).spot("scout_event", "/tmp/durable", {"info": "keep"})
+    # restart: brand-new bus, same store + receipts ledger
+    bus_restarted = FakeBus()
+    rep = audit_ok(store9, bus_restarted, guard9, "scout-1",
+                   receipts=sink9.receipts)
+    attack("A9 restart false-positives",
+           "CAUGHT" if rep.consistent else "LANDED",
+           f"fresh bus + durable receipts -> matched={rep.matched}, "
+           f"ghosts={len(rep.ghost_bus_events)}")
+    shutil.rmtree(tmp9, ignore_errors=True)
 
     # --- A8 (H9): demo shared key -------------------------------------------
     print("\n[H9] key hygiene")

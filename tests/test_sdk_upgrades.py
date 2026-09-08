@@ -35,6 +35,7 @@ class FakeBus:
     def __init__(self):
         self._log = []
         self._count = 0
+        self.on_publish = None  # red-team hook: observe subscriber timing
 
     def publish(self, sender_id, channel, data):
         self._count += 1
@@ -46,6 +47,8 @@ class FakeBus:
             "detail": "[REDACTED]",
             "msg_id": self._count,
         })
+        if self.on_publish:
+            self.on_publish(data)
 
     def get_message_log(self, n=50):
         return list(self._log[-n:]) if n else list(self._log)
@@ -297,6 +300,56 @@ class TestFabrication(unittest.TestCase):
         report = scout.audit_self()
         self.assertFalse(report.consistent)
         self.assertEqual(len(report.replays), 1)
+
+    def test_unsigned_claim_is_a_hit(self):
+        sink, store, bus, guard = make_env()
+        scout = Scout("scout-1", sink)
+        scout.spot("scout_event", "/tmp/t", {"info": "found"})
+        # forged claim through the raw store — no guard, no signature
+        store.emit(type_="TASK_CLAIM", source="scout-1", path="/etc/shadow",
+                   payload={"reason": "forged"})
+        report = scout.audit_self()
+        self.assertFalse(report.consistent)
+        self.assertEqual(len(report.unsigned_claims), 1)
+
+    def test_receipts_durable_across_restart(self):
+        tmp = tempfile.mkdtemp()
+        from pheromone_store import PheromoneStore
+        store = PheromoneStore(store_path=os.path.join(tmp, "pheromones.jsonl"))
+        bus = FakeBus()
+        sink = PheromoneSink(store=store, event_bus=bus, guard=CommandGuard(key=TEST_KEY))
+        Scout("scout-1", sink).spot("scout_event", "/tmp/t", {"info": "keep"})
+        # restart: brand-new empty bus, same store + receipts
+        rep = FabricationDetector(store=store, bus=FakeBus(), guard=sink.guard,
+                                  agent_id="scout-1",
+                                  receipts=sink.receipts).audit()
+        self.assertTrue(rep.consistent, rep.issues)
+        self.assertEqual(rep.matched, 1)
+
+    def test_persist_before_publish_ordering(self):
+        tmp = tempfile.mkdtemp()
+        from pheromone_store import PheromoneStore
+        store = PheromoneStore(store_path=os.path.join(tmp, "pheromones.jsonl"))
+        bus = FakeBus()
+        seen = {}
+        bus.on_publish = lambda data: seen.update(
+            {"recorded": any(r["payload"].get("correlation") == data["id"]
+                             for r in store.read_all())})
+        sink = PheromoneSink(store=store, event_bus=bus, guard=CommandGuard(key=TEST_KEY))
+        Scout("scout-1", sink).spot("scout_event", "/tmp/t", {"info": "timing"})
+        self.assertTrue(seen.get("recorded"),
+                        "subscriber fired before the store record existed")
+
+    def test_legacy_bus_msg_id_fallback_still_matches(self):
+        tmp = tempfile.mkdtemp()
+        from pheromone_store import PheromoneStore
+        store = PheromoneStore(store_path=os.path.join(tmp, "pheromones.jsonl"))
+        bus = FakeBus()
+        guard = CommandGuard(key=TEST_KEY)
+        sink = PheromoneSink(store=None, event_bus=bus, guard=guard)
+        s = sink.report(Spotting(id=phm_id(), ts="1", source="scout-1",
+                                 kind="scout_event", target="/tmp/t"))
+        self.assertTrue(s.bus_msg_id)
 
     def test_uncorrelated_legacy_rows_are_gaps_not_hits(self):
         sink, store, bus, guard = make_env()
