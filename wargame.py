@@ -144,8 +144,12 @@ class ScoutWargame:
         self.mode = mode if mode in ("arena", "gauntlet", "flex") else "arena"
         # THE SEAM: default = the stdlib scanner (unchanged behavior). The
         # Code-City bridge (vigil.citybridge.scan) plugs in here — three
-        # lanes, same finding schema, city lanes opt-in.
+        # lanes, same finding schema, city lanes opt-in. Armed moves (the
+        # armory firing on confirmed breach points) activate only with a
+        # city scan_fn — the default scanner has no executable findings.
         self.scan_fn = scan_fn if scan_fn is not None else scan
+        self.use_city_moves = scan_fn is not None
+        self.armory_report = None
         self.findings: List[Dict[str, Any]] = []
         self.red_score = 0
         self.blue_score = 0
@@ -428,6 +432,48 @@ class ScoutWargame:
                 # the sniffer grades whatever genuinely got said.
                 self._speak_real(rnd, red_swarm, blue_swarm)
 
+            # ARMED MOVES: with the city bridge, confirmed breach findings
+            # become executable red-team strikes on fresh looms — routed by
+            # canon (VIPER/RAVAGE/WRAPPER), scored only on re-confirmed
+            # breaches (STRIKE THE FORK), interdictable by blue's market.
+            if self.use_city_moves:
+                try:
+                    from vigil.armory import run_armory
+
+                    def blue_interdict(move):
+                        # blue's real market interdicts: the SAME law as the
+                        # per-finding block — the top defender's bid priority
+                        # (deterministic confidence + peer standing) must
+                        # clear the block threshold.
+                        top = max(BLUE_AGENTS,
+                                  key=lambda a: blue_watch.weight(a))
+                        finding = move["finding"]
+                        prio = _blue_confidence(finding.get("severity", "low"),
+                                                finding.get("path", ""))
+                        prio *= max(0.1, blue_watch.weight(top))
+                        return prio >= BLOCK_PRIORITY_THRESHOLD
+
+                    armory_report = run_armory(
+                        self.target_dir,
+                        findings=[f for f in self.findings
+                                  if f.get("lane") == "live"],
+                        blue_block=blue_interdict)
+                    self.red_score += armory_report["red_score"]
+                    self.blue_score += armory_report["blue_score"]
+                    print(f"\n=== ARMED MOVES — {armory_report['moves_armed']} "
+                          f"strikes on confirmed breach points ===")
+                    for e in armory_report["log"]:
+                        flag = ("CONFIRMED" if e["confirmed"] else "REFUTED")
+                        inter = " [INTERDICTED]" if e["interdicted"] else ""
+                        print(f"  [{e['agent'].upper():>7}] {e['move']:<38} "
+                              f"-> {flag}{inter}")
+                    if armory_report["refuted_findings"]:
+                        print(f"  [FORK] refuted claims scored ZERO: "
+                              f"{', '.join(armory_report['refuted_findings'])}")
+                    self.armory_report = armory_report
+                except Exception as e:
+                    print(f"  [ARMORY] unavailable: {e}")
+
             # Theoros observes the WHOLE arena: both ledgers, one reading
             theoros = Theoros(store=red_store, bus=bus, guard=red_guns["viper"],
                               receipts=red_swarm.sink.receipts,
@@ -471,6 +517,8 @@ class ScoutWargame:
                 "molt_awards": self.molt_awards,
                 "molt_verified": (self.molt.verify()["ok"]
                                    if self.molt is not None else None),
+                "armed_moves": (self.armory_report or {}).get("moves_armed", 0),
+                "armory": self.armory_report,
                 "reading": reading,
                 "blue_reading": blue_reading,
                 "brown": brown_verdict,
@@ -491,8 +539,11 @@ def main():
     rounds = int(args[1]) if len(args) > 1 else 3
     scan_fn = None
     if use_city:
+        from functools import partial
         from vigil.citybridge import scan as city_scan
-        scan_fn = city_scan
+        # --city opts into the LIVE lane too: armed moves need executable
+        # findings (breach=True handles), which only the live lane produces.
+        scan_fn = partial(city_scan, live=True)
     game = ScoutWargame(target, rounds=rounds, scan_fn=scan_fn)
     result = game.play()
     print("\n" + "=" * 60)
