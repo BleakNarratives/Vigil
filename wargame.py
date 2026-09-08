@@ -382,6 +382,7 @@ class ScoutWargame:
                 "score": self.red_score - int(self.mine_cost),
                 "red_score": self.red_score, "blue_score": self.blue_score,
                 "findings": len(findings), "executions": len(self.executions),
+                "execution_log": list(self.executions),
                 "theoros_consistent": bool(reading),
                 "corrupt_speakers": len(reading.corrupt_speakers),
                 "mines": self.mines,

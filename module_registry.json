@@ -478,6 +478,20 @@
         "BidResult is truthy iff accepted (old `if board.bid(s)` callers keep working)",
         "SPOTTING_EMBED_KEY payload nesting is preserved (integrity verification depends on it)"
       ]
+    },
+    {
+      "name": "undercurrent",
+      "path": "undercurrent.py",
+      "role": "THE UNDER CURRENT - genetic memory: verified learnings pool, confirmations cross the monkey threshold, hydrate wicks inherited knowledge into new scouts, kinship shivers liveness (the 100th monkey / bunny-ship kinship)",
+      "patch_policy": "undercurrent: append-only ledger; engage: orchestrates, never edits",
+      "mutates": false
+    },
+    {
+      "name": "engage",
+      "path": "engage.py",
+      "role": "THE FULL ENGAGEMENT - red vs blue with Brown dropping, journaled to Sakshi, verified learnings absorbed into the Undercurrent",
+      "patch_policy": "undercurrent: append-only ledger; engage: orchestrates, never edits",
+      "mutates": false
     }
   ]
 }
