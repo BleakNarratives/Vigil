@@ -38,7 +38,13 @@ SESSION: 2026-09-08
 TIER: 2
 /DNA_TAG
 """
+import base64
 import hashlib
+import json
+import os
+import shutil
+import time
+from pathlib import Path
 from typing import Optional
 
 try:
@@ -75,6 +81,42 @@ def module_dna_fingerprint(module_text: str) -> str:
     return hashlib.sha256(module_text.encode("utf-8")).hexdigest()
 
 
+DEFAULT_VAULT_PATH = Path("~/.concierge/vault.json").expanduser()
+VAULT_SLOT = "unit_secret"
+
+
+def load_unit_secret(vault_path: Optional[Path] = None,
+                     slot: str = VAULT_SLOT) -> bytes:
+    """Read-or-create the swarm's unit secret INSIDE the concierge vault.
+
+    The charge is generated once (os.urandom(32)), stored base64 under the
+    vault's `unit_secret` slot with a pre-write backup, and is NEVER written
+    to any other file. The agent only ever receives DERIVED keys — the unit
+    secret stays in the vault, out of scout scope.
+
+    Usage:
+        keyring = AgentKeyring(load_unit_secret())
+    """
+    path = Path(vault_path) if vault_path is not None else DEFAULT_VAULT_PATH
+    if not path.exists():
+        raise FileNotFoundError(f"vault not found: {path}")
+    with open(path) as f:
+        vault = json.load(f)
+    existing = vault.get(slot)
+    if isinstance(existing, str) and existing:
+        return base64.b64decode(existing)
+
+    secret = os.urandom(32)
+    vault[slot] = base64.b64encode(secret).decode("ascii")
+    backup = str(path) + f".bak_{time.strftime('%Y%m%dT%H%M%S')}"
+    shutil.copy2(path, backup)
+    os.chmod(path, 0o600)
+    with open(path, "w") as f:
+        json.dump(vault, f, indent=2)
+        f.write("\n")
+    return secret
+
+
 class AgentKeyring:
     """Custody of the charge. Issue guns, derive verification guards.
 
@@ -108,5 +150,11 @@ class AgentKeyring:
         """Convenience: verify one spotting against an agent's identity."""
         return self.verify_guard(agent_id, dna).verify(spotting)
 
+    @classmethod
+    def from_vault(cls, vault_path: Optional[Path] = None) -> "AgentKeyring":
+        """Build a keyring whose charge lives in the concierge vault."""
+        return cls(load_unit_secret(vault_path))
 
-__all__ = ["AgentKeyring", "derive_agent_key", "module_dna_fingerprint"]
+
+__all__ = ["AgentKeyring", "derive_agent_key", "module_dna_fingerprint",
+           "load_unit_secret", "DEFAULT_VAULT_PATH", "VAULT_SLOT"]

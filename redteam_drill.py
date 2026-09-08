@@ -34,6 +34,8 @@ from sdk.keyring import AgentKeyring  # noqa: E402
 from sdk.peerwatch import PeerWatch  # noqa: E402
 from sdk.voice import Voice  # noqa: E402
 from sdk.knose import Knose  # noqa: E402
+from sdk.theoros import Theoros  # noqa: E402
+from sdk.keyring import load_unit_secret  # noqa: E402
 
 TEST_KEY = b"red-team-key-please-rotate-me"
 
@@ -298,6 +300,33 @@ def main():
            f"victim of dirtbag flag keeps {w_v:.3f}, flagged by clean scout "
            f"drops to {w_t:.3f} (the industry rewards credible informants)")
 
+    # --- A15 (H4c): informant reward — confirmed flags earn standing ------
+    print("\n[H4c] informant market")
+    watch_i = PeerWatch(path=os.path.join(tmp, "peerwatch_informant.jsonl"), guard=guard)
+    watch_i.flag("snitch", "liar", "phm_77", "liar's claims are fantasy")
+    w_before = watch_i.weight("snitch")
+    watch_i.confirm_flag("shepherd", "liar", "phm_77", "verified — correct call")
+    w_after = watch_i.weight("snitch")
+    attack("A15 informant earns standing",
+           "CAUGHT" if w_after > w_before else "LANDED",
+           f"snitch weight: {w_before:.2f} -> {w_after:.2f} "
+           f"(the paycheck is real)")
+
+    # --- A16 (H1): unit secret lives in the vault, read-or-create -------
+    print("\n[H1] vaulted charge")
+    import json as _json
+    vpath = os.path.join(tmp, "vault.json")
+    with open(vpath, "w") as f:
+        _json.dump({"keys": {}, "keys_by_provider": {}}, f)
+    s1 = load_unit_secret(vpath)
+    s2 = load_unit_secret(vpath)
+    vault = _json.load(open(vpath))
+    attack("A16 unit secret vaulted",
+           "CAUGHT" if (s1 == s2 and len(s1) == 32
+                        and "unit_secret" in vault) else "LANDED",
+           f"generated once, stable on reload, stored in vault slot "
+           f"(len {len(s1)} bytes)")
+
     # --- A9 (H5): durability — audit survives a bus restart ----------------
     print("\n[H5] durable receipts")
     tmp9, store9, bus9, guard9, sink9 = make_env()
@@ -320,6 +349,27 @@ def main():
 
     # --- summary --------------------------------------------------------------
     print("\n" + "=" * 78)
+    # --- A17: Theoros — the observer reads the field, mutates nothing ----
+    print("\n[THEOROS] the observer")
+    from sdk.spyglass_sdk import Scout as _Scout
+    tmp_t, store_t, bus_t, guard_t, sink_t = make_env()
+    t_scout = _Scout("viper", sink_t)
+    t_scout.spot("vuln:test", "/tmp/target", {"severity": "high"},
+                 confidence=0.9, strength=1.0)
+    t_scout.speak("intel", "confirmed at grid 44.91, one entrance")
+    theoros = Theoros(store=store_t, bus=bus_t, guard=guard_t,
+                      receipts=sink_t.receipts, voice=sink_t.voice)
+    reading = theoros.observe()
+    before = sorted(store_t.read_all(), key=lambda r: r["id"])
+    reading2 = theoros.observe()  # observe twice — must change nothing
+    after = sorted(store_t.read_all(), key=lambda r: r["id"])
+    attack("A17 observer read-only + consistent",
+           "CAUGHT" if (before == after and bool(reading)) else "LANDED",
+           f"consistent={bool(reading)}, state unchanged across observes "
+           f"(fabrication matched={reading.fabrication.matched})")
+    import shutil
+    shutil.rmtree(tmp_t, ignore_errors=True)
+
     caught = sum(1 for _, s, _ in RESULTS if s == "CAUGHT")
     landed = sum(1 for _, s, _ in RESULTS if s == "LANDED")
     print(f"VERDICT: {caught} CAUGHT / {landed} LANDED")

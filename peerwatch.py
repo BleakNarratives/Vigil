@@ -51,6 +51,10 @@ _SIGNED_FIELDS = ("ts", "kind", "actor", "target_agent", "spotting_id",
 WEIGHT_MIN = 0.25
 WEIGHT_MAX = 2.0
 
+# Standing earned per shepherd-CONFIRMED flag — the informant's paycheck.
+# The industry pays: a scout whose flag is validated climbs.
+CONFIRM_REWARD = 0.5
+
 # Recursion cap for self-referential reputation (A vouches B, B vouches A).
 # Depth-limited, deterministic — no fixed-point solver needed.
 _WEIGHT_DEPTH = 3
@@ -121,6 +125,24 @@ class PeerWatch:
             return [r for r in records if r.get("target_agent") == agent_id]
         return records
 
+    def confirm_flag(self, shepherd: str, target_agent: str, spotting_id: str,
+                     note: str = "") -> Dict[str, Any]:
+        """Shepherd validates an informant's flag: the flag was CORRECT.
+        The FLAGGER earns standing (CONFIRM_REWARD) — the ratting market's
+        paycheck. Confirmation is itself a signed, append-only record."""
+        return self._append("confirm", shepherd, target_agent=target_agent,
+                            spotting_id=spotting_id, detail=note)
+
+    def confirmed_flags(self, agent_id: str) -> List[Dict[str, Any]]:
+        """The agent's flags that the shepherd has confirmed."""
+        all_records = self._memory + self._read_file()
+        my_flags = [r for r in all_records
+                    if r.get("actor") == agent_id and r.get("kind") == "flag"]
+        confirms = {(r.get("target_agent"), r.get("spotting_id"))
+                    for r in all_records if r.get("kind") == "confirm"}
+        return [f for f in my_flags
+                if (f.get("target_agent"), f.get("spotting_id")) in confirms]
+
     def _read_file(self) -> List[Dict[str, Any]]:
         if not self.path or not os.path.exists(self.path):
             return []
@@ -156,7 +178,9 @@ class PeerWatch:
                 vouch_sum += actor_weight
             elif rec.get("kind") == "flag":
                 flag_sum += actor_weight
-        return _clamp((vouch_sum + 1.0) / (flag_sum + 1.0), WEIGHT_MIN, WEIGHT_MAX)
+        base = (vouch_sum + 1.0) / (flag_sum + 1.0)
+        reward = CONFIRM_REWARD * len(self.confirmed_flags(agent_id))
+        return _clamp(base + reward, WEIGHT_MIN, WEIGHT_MAX)
 
     def _canonical(self, record: Dict[str, Any]) -> str:
         fields = {k: record.get(k) for k in _SIGNED_FIELDS}

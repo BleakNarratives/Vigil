@@ -10,7 +10,8 @@ The core substrate for swarm scouting agents to `spot`, `bid`, `claim`, and `rep
 | **Geometry** | `sdk/geometry.py` | `WhorlWeave` gives every scout a position in the weave (ring/phase/helix). `bid()` computes confidence + strength from that geometry via **quadratic dispersion** (`urgency / (1 + k·d²)`) plus **latent state** (health, resource cost, mission priority) — not arrival speed. |
 | **Fabrication** | `sdk/fabrication.py` | `FabricationDetector` cross-checks a scout's own pheromone log against the `SyntaxEventBus` log: matched receipts, unmatched (forged) receipts, ghost bus events, signature failures, field mismatches, replays, unsigned claims. `Scout.audit_self()` runs it. |
 | **Receipts** | `sdk/receipts.py` | Durable `spotting_id -> bus_msg_id` correlation ledger — audits survive bus restarts, and the sink can persist-before-publish (subscribers never act on unrecorded spottings). |
-| **Keyring** | `sdk/keyring.py` | RoboCop key custody (H1): per-agent signing keys derived from a unit secret + agent identity — the gun only fires for its owner; the shepherd holds the charge. |
+| **Keyring** | `sdk/keyring.py` | RoboCop key custody (H1): per-agent signing keys derived from a unit secret + agent identity — the gun only fires for its owner; the charge lives in the concierge vault (`load_unit_secret` / `AgentKeyring.from_vault`), generated once, never on disk elsewhere. |
+| **Theoros** | `sdk/theoros.py` | THE OBSERVER (operator-named): read-only monitoring layer — fabrication audit + voice sniff + reputation standings + votes + suggestions + receipt chain in one reading. Theory from watching; mutates nothing. |
 | **PeerWatch** | `sdk/peerwatch.py` | Peer accountability (H4): scouts flag/vouch each other's declared values; RECURSIVELY WEIGHTED reputation (each flag/vouch counts per the actor's own standing — colluding dirtbags can't launder each other, false flags from dirtbags barely dent) discounts flagged liars' bids — quietly recorded, shepherd-visible. |
 | **Knose** | `sdk/knose.py` | THE BULLSHIT SNIFFER: deterministic anti-register scanner (hedges, vague quantifiers, certainty-without-evidence, LARP, sycophancy) — Voice auto-flags corrupt utterances into PeerWatch. TruthSleuth's LLM enrichment is the optional backend seam. |
 
@@ -79,16 +80,40 @@ Runs one signed spotting, three weave-aware bids on a single shared board
 ```bash
 python3 sdk/redteam_drill.py
 ```
-Runs the H1-H9 attack battery and reports CAUGHT/LANDED per attack.
-Current verdict: **13 CAUGHT / 3 LANDED** (path spoof, unsigned claims,
+Runs the H1-H16 attack battery and reports CAUGHT/LANDED per attack.
+Current verdict: **16 CAUGHT / 3 LANDED** (path spoof, unsigned claims,
 lying bids + value clamps, replays, persist-first ordering, restart
 durability, peer-flagged liars losing bids, cross-agent key forgery,
 tampered ballots, corrupt utterances sniffed + auto-flagged, colluding
-liars unable to launder standing, dirty false-flags discounted — all
-caught). Remaining LANDED are documented fundamentals: lying-but-
-consistent scouts (the detector proves consistency, not truth), a stolen
-DERIVED key still forging its own agent (blast radius limited to one lane;
-unit-secret custody is the deployment-phase control), and demo key hygiene.
+liars unable to launder standing, dirty false-flags discounted, informants
+earning standing on confirmed flags, cross-agent key forgery on the vaulted
+charge — all caught). Remaining LANDED are documented fundamentals: lying-
+but-consistent scouts (the detector proves consistency, not truth), a
+stolen DERIVED key still forging its own agent (blast radius limited to one
+lane; the charge itself lives in the concierge vault, out of scout scope),
+and demo key hygiene.
+
+## Naming (operator-picked, 2026-09-08)
+
+- **Theoros** — the observer that produces understanding (theory from
+  watching). The read-only monitoring layer's face.
+- **Sakshi** — the silent witness: sees everything, touched by nothing,
+  never the actor. The record-side counterpart to Theoros.
+- **Leer** — Spanish for *to read* (leer): the reader lens — reading the
+  register, the ledger, the register. The scout posture.
+
+## Wargame (scouts as the red team's scouting arm)
+
+```bash
+python3 sdk/wargame.py <target_dir> [rounds]
+```
+Scouts recon a target corpus for real vulnerability patterns (subprocess
+shell, eval/exec, pickle, yaml.load, md5, hardcoded secrets, insecure
+random), bid on findings geometrically on ONE shared board, the red team
+executes, the blue team blocks deterministically, and Theoros observes the
+transcript — every move signed, ledgered, and auditable. The scanner is
+stdlib-only and deterministic; swap `scan()` for Code-City's attack modules
+for the full wargame.
 
 ## Tests
 ```bash

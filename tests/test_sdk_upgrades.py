@@ -9,6 +9,7 @@ Hermetic by default: fabrication tests use a FakeBus mirroring the
 SyntaxEventBus public surface (publish + get_message_log). One integration
 test exercises the REAL SyntaxEventBus when importable.
 """
+import json
 import os
 import tempfile
 import unittest
@@ -23,6 +24,9 @@ from sdk.keyring import AgentKeyring, derive_agent_key, module_dna_fingerprint
 from sdk.peerwatch import PeerWatch
 from sdk.voice import Voice
 from sdk.knose import Knose
+from sdk.theoros import Theoros
+from sdk.keyring import load_unit_secret
+from sdk import wargame as wargame_mod
 
 try:
     from SyntaxIntelligence.event_bus import SyntaxEventBus
@@ -662,6 +666,112 @@ class TestKnose(unittest.TestCase):
         self.assertLess(watch.weight("liar"), 1.0)
         flags = [r for r in watch.history("liar") if r.get("actor") == "knose"]
         self.assertEqual(len(flags), 1)
+
+
+class TestPhmId(unittest.TestCase):
+
+    def test_rapid_ids_unique(self):
+        ids = {phm_id() for _ in range(100)}
+        self.assertEqual(len(ids), 100)  # wargame found the collision; fixed
+
+
+class TestInformantReward(unittest.TestCase):
+
+    def test_confirmed_flag_earns_standing(self):
+        watch = PeerWatch()
+        watch.flag("snitch", "liar", "phm_77", "fantasy")
+        before = watch.weight("snitch")
+        watch.confirm_flag("shepherd", "liar", "phm_77", "verified")
+        after = watch.weight("snitch")
+        self.assertGreater(after, before)
+        self.assertEqual(len(watch.confirmed_flags("snitch")), 1)
+        # non-informant gets nothing
+        self.assertEqual(watch.weight("bystander"), 1.0)
+
+    def test_unconfirmed_flag_gets_no_paycheck(self):
+        watch = PeerWatch()
+        watch.flag("snitch", "liar", "phm_77", "fantasy")
+        self.assertEqual(watch.weight("snitch"), 1.0)
+
+
+class TestVaultUnitSecret(unittest.TestCase):
+
+    def test_read_or_create_and_stable(self):
+        tmp = tempfile.mkdtemp()
+        vpath = os.path.join(tmp, "vault.json")
+        with open(vpath, "w") as f:
+            json.dump({"keys": {}}, f)
+        s1 = load_unit_secret(vpath)
+        s2 = load_unit_secret(vpath)
+        self.assertEqual(s1, s2)
+        self.assertEqual(len(s1), 32)
+        with open(vpath) as f:
+            self.assertIn("unit_secret", json.load(f))
+        # backup was made before first write
+        self.assertTrue(any(b.startswith("vault.json.bak_") for b in os.listdir(tmp)))
+        # secret never appears in any other file
+        self.assertEqual(sum("unit_secret" in open(os.path.join(tmp, b)).read()
+                             for b in os.listdir(tmp) if b.startswith("vault.json.bak")), 0)
+
+
+class TestTheoros(unittest.TestCase):
+
+    def test_observe_is_read_only_and_consistent(self):
+        sink, store, bus, guard = make_env()
+        scout = Scout("viper", sink)
+        scout.spot("vuln:test", "/tmp/target", {"severity": "high"})
+        theoros = Theoros(store=store, bus=bus, guard=guard,
+                          receipts=sink.receipts, voice=sink.voice)
+        r1 = theoros.observe()
+        before = sorted(store.read_all(), key=lambda r: r["id"])
+        r2 = theoros.observe()
+        after = sorted(store.read_all(), key=lambda r: r["id"])
+        self.assertEqual(before, after)  # mutates nothing
+        self.assertTrue(r1.consistent)
+        self.assertEqual(r1.fabrication.matched, 1)
+        self.assertEqual(r1.receipt_count, 1)
+
+    def test_corrupt_speaker_surfaced(self):
+        sink, store, bus, guard = make_env()
+        scout = Scout("wrapper", sink)
+        scout.spot("vuln:test", "/tmp/t", {})
+        scout.speak("intel", "trust me, everyone knows this is a sure thing")
+        theoros = Theoros(store=store, bus=bus, guard=guard,
+                          receipts=sink.receipts, voice=sink.voice)
+        reading = theoros.observe()
+        self.assertFalse(reading.consistent)
+        self.assertEqual(len(reading.corrupt_speakers), 1)
+        self.assertEqual(reading.corrupt_speakers[0]["actor"], "wrapper")
+
+
+class TestWargame(unittest.TestCase):
+
+    def test_scan_finds_planted_vulns(self):
+        tmp = tempfile.mkdtemp()
+        with open(os.path.join(tmp, "app.py"), "w") as f:
+            f.write('import subprocess\n'
+                    'API_KEY = "sk-live-1234567890abcdef"\n'
+                    'subprocess.run(cmd, shell=True)\n'
+                    'import pickle\npickle.loads(data)\n')
+        findings = wargame_mod.scan(tmp)
+        patterns = {f["pattern"] for f in findings}
+        self.assertIn("subprocess_shell", patterns)
+        self.assertIn("hardcoded_secret", patterns)
+        self.assertIn("pickle_load", patterns)
+        for f in findings:
+            self.assertIn(f["severity"], ("high", "medium", "low"))
+
+    def test_play_is_deterministic_and_scores(self):
+        tmp = tempfile.mkdtemp()
+        with open(os.path.join(tmp, "app.py"), "w") as f:
+            f.write('import subprocess\nsubprocess.run(cmd, shell=True)\n')
+        g1 = wargame_mod.ScoutWargame(tmp, rounds=1)
+        g2 = wargame_mod.ScoutWargame(tmp, rounds=1)
+        r1, r2 = g1.play(), g2.play()
+        self.assertEqual(r1["score"], r2["score"])
+        self.assertEqual(r1["findings"], r2["findings"])
+        self.assertGreaterEqual(r1["score"], 0)
+        self.assertIn("theoros_consistent", r1)
 
 
 class TestBoundaryClamp(unittest.TestCase):

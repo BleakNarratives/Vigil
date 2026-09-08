@@ -155,8 +155,16 @@ class Spotting:
         return json.dumps(self.to_dict())
 
 
+_phm_counter = 0
+
+
 def phm_id(prefix: str = "phm") -> str:
-    return f"{prefix}_{int(time.time()*1000)}"
+    """Unique spotting id: millisecond epoch + a process-global counter.
+    Millisecond timestamps alone COLLIDE under rapid-fire spot() calls
+    (found by the wargame: collided correlations produced phantom ghosts)."""
+    global _phm_counter
+    _phm_counter += 1
+    return f"{prefix}_{int(time.time()*1000)}_{_phm_counter}"
 
 
 class PheromoneSink:

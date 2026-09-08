@@ -78,11 +78,11 @@
       "patchable": true,
       "approval": "none",
       "patch_policy": "scout-patchable. Keep derive semantics + verify_guard symmetry; test gate must stay green; ledger entry with author+reason required. The unit secret NEVER lives in agent scope.",
-      "public_api": ["AgentKeyring(unit_secret)", "AgentKeyring.issue(agent_id, dna)", "AgentKeyring.verify_guard(agent_id, dna)", "AgentKeyring.verify_signature(agent_id, spotting)", "derive_agent_key(unit_secret, agent_id, dna)", "module_dna_fingerprint(module_text)"],
+      "public_api": ["AgentKeyring(unit_secret)", "AgentKeyring.issue(agent_id, dna)", "AgentKeyring.verify_guard(agent_id, dna)", "AgentKeyring.verify_signature(agent_id, spotting)", "AgentKeyring.from_vault(vault_path)", "derive_agent_key(unit_secret, agent_id, dna)", "module_dna_fingerprint(module_text)", "load_unit_secret(vault_path, slot)", "DEFAULT_VAULT_PATH", "VAULT_SLOT"],
       "extension_points": [
         "derive_agent_key() — change derivation (HKDF, per-agent salt) without breaking issue/verify symmetry",
         "module_dna_fingerprint() — bind to a different identity artifact (DNA_TAG block vs whole source)",
-        "issue()/verify_guard() — feed the unit secret from the concierge vault instead of a literal"
+        "issue()/verify_guard() — feed the unit secret from the concierge vault (load_unit_secret / from_vault)"
       ],
       "invariants": [
         "issue(agent_id) and verify_guard(agent_id) MUST derive the same key for the same inputs",
@@ -99,10 +99,10 @@
       "patchable": true,
       "approval": "none",
       "patch_policy": "scout-patchable. Keep flag/vouch append-only semantics + weight math bounds; test gate must stay green; ledger entry with author+reason required.",
-      "public_api": ["PeerWatch(path, guard)", "PeerWatch.flag(flagger, target_agent, spotting_id, reason)", "PeerWatch.vouch(voucher, target_agent, spotting_id, note)", "PeerWatch.weight(agent_id)", "PeerWatch.history(agent_id)"],
+      "public_api": ["PeerWatch(path, guard)", "PeerWatch.flag(flagger, target_agent, spotting_id, reason)", "PeerWatch.vouch(voucher, target_agent, spotting_id, note)", "PeerWatch.confirm_flag(shepherd, target_agent, spotting_id, note)", "PeerWatch.weight(agent_id)", "PeerWatch.history(agent_id)", "PeerWatch.confirmed_flags(agent_id)", "CONFIRM_REWARD"],
       "extension_points": [
         "weight() — different reputation law (decay, flag-source weighting) while staying within WEIGHT_MIN/WEIGHT_MAX",
-        "flag()/vouch() — reward validated informants (shepherd-confirmed flags earn standing) — the incentive half of the ratting market",
+        "confirm_flag() — tie confirmation to a ledger-walked verdict (e.g. the flagged agent later fails a fabrication audit) instead of a manual shepherd call",
         "history() — feed the shepherd's audit UI",
         "flag()/vouch() — emit the records as signed pheromones too (swarm-visible ledger)"
       ],
@@ -112,6 +112,27 @@
         "flags/vouches are weighted by the ACTOR's own reputation (recursive, depth-capped at 3) — colluding dirtbags cannot launder standing",
         "weight() never throws on an empty history (returns 1.0)",
         "SpottingBoard.bid() applies peer_weight without mutating the spotting"
+      ]
+    },
+    {
+      "name": "theoros",
+      "path": "theoros.py",
+      "role": "THE OBSERVER (operator-named 2026-09-08): read-only monitoring layer — fabrication audit + voice sniff + reputation standings + votes + suggestions + receipt chain, one reading. Theory from watching.",
+      "version": "1",
+      "patchable": true,
+      "approval": "none",
+      "patch_policy": "scout-patchable. The READ-ONLY contract is the invariant — Theoros may observe and report, never mutate. Test gate must stay green; ledger entry with author+reason required.",
+      "public_api": ["Theoros(store, bus, guard, receipts, peer_watch, voice, sniffer, keyring)", "Theoros.observe(agent_id)", "TheorosReading"],
+      "extension_points": [
+        "observe() — add ledger surfaces (mutation ledger, peerwatch confirmations) to the reading",
+        "render() — different report formats (json, dashboard feed)",
+        "sniffer — swap Knose for a TruthSleuth LLM backend at construction"
+      ],
+      "invariants": [
+        "observe() NEVER mutates store, bus, receipts, voice, or peer_watch",
+        "every claim in the reading traces to a signed ledger record — no confidence-derived assertions",
+        "reading.consistent is False if fabrication hits OR corrupt speakers exist",
+        "double-observe returns identical state (idempotent observation)"
       ]
     },
     {
