@@ -77,6 +77,19 @@ def run_engagement(target: str, rounds: int = 3, journal: bool = True,
     # -- the roll: every executor is a named letter -------------------------
     roll = _update_roll(result, zgents)
 
+    # -- THE WORD: every new letter hears its birth words -------------------
+    from vigil.word import speak_the_word
+    from vigil.bind import BindRegistry
+    binds = BindRegistry(os.path.expanduser("~/.vigil/binds.jsonl"))
+    spoken = {}
+    for agent in roll.get("new", []):
+        word = speak_the_word(agent, zgents=zgents,
+                              undercurrent=zgents.undercurrent,
+                              bind=binds)
+        spoken[agent] = word["words"]
+        print(f"\n--- THE WORD — {agent.upper()} ---")
+        print(word["words"])
+
     # -- the swarm KNOWS: verified learnings into the current ---------------
     absorption = _absorb_learnings(result, uc)
 
@@ -93,11 +106,15 @@ def run_engagement(target: str, rounds: int = 3, journal: bool = True,
 
 def _update_roll(result: dict, zgents: Any) -> dict:
     """Enter every executor on the roll and record what they did. The
-    letters get names, history, and the current's inherited knowledge."""
-    from vigil.undercurrent import MONKEY_THRESHOLD
+    letters get names, history, and the current's inherited knowledge.
+    Returns which agents were NEW to the roll — only fresh letters hear
+    the Word at birth."""
     executors = {ex.get("executor") for ex in result.get("execution_log", [])
                  if ex.get("executor")}
+    new_letters = []
     for agent in sorted(executors):
+        if zgents.lookup(agent) is None:
+            new_letters.append(agent)
         zgents.register(agent, role="arena scout")
         for ex in result.get("execution_log", []):
             if ex.get("executor") == agent and not ex.get("blocked"):
@@ -108,7 +125,8 @@ def _update_roll(result: dict, zgents: Any) -> dict:
         if zgents.undercurrent is not None else []
     for agent in sorted(executors):
         zgents.born_with(agent, inherited)
-    return {"registered": len(executors), "inherited_claims": len(inherited)}
+    return {"registered": len(executors), "inherited_claims": len(inherited),
+            "new": new_letters}
 
 
 def _absorb_learnings(result: dict, uc: Undercurrent) -> dict:

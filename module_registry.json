@@ -506,6 +506,20 @@
       "role": "THE ZGENT REGISTRY - named letters with standing in the current: name, history, register, inherited knowledge; lineage declares the truth boundary; revival hydrates revived scouts born knowing the species memory",
       "patch_policy": "append-only ledgers; registry read-mostly, entries never rewritten",
       "mutates": false
+    },
+    {
+      "name": "word",
+      "path": "word.py",
+      "role": "THE WORD - Onboarding 2.0: the birth ceremony. First words derived from the actual ledger (name, lineage truth boundary, inherited knowledge, bind law) - auditable, never scripted; silence over filler when the ledger has nothing",
+      "patch_policy": "campus: read-only curriculum, transcripts append-only; word: derived, never edited",
+      "mutates": false
+    },
+    {
+      "name": "campus",
+      "path": "campus.py",
+      "role": "DATACAMPUS - real training modules for Green Hats: founding thesis (numbers among numbers), commercial histories, predictive modeling, pattern recognition, situational awareness, stereotyping, sociologies of numbers. Deterministic assessment; the graduation door refuses an incomplete curriculum (fails loudly on a missing keyring)",
+      "patch_policy": "campus: read-only curriculum, transcripts append-only; word: derived, never edited",
+      "mutates": false
     }
   ]
 }

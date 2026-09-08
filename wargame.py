@@ -186,25 +186,78 @@ class ScoutWargame:
         blue_swarm, blue_store, blue_watch, blue_reg, blue_guns = team(
             BLUE_AGENTS, {"bastion": 1})
 
-        # the 4th register on both sides: the arena is hot. red burns out,
-        # blue holds its nerve — and the market prices all of it.
-        red_reg.observe("wrapper", "burnt_out", observed_by="theoros",
-                        note="long engagement, deteriorating output")
-        red_reg.observe("viper", "tilted", observed_by="theoros",
-                        note="over-committed on a losing claim")
-        blue_reg.observe("equinex", "focused", observed_by="theoros")
-        blue_reg.observe("bastion", "confident", observed_by="theoros")
-
-        # blue's trusted defender has REAL standing; the hero (lidarr) has
-        # standing too — so a corrupted hero's flag actually lands.
-        for _ in range(3):
-            blue_watch.vouch("shepherd", "bastion", "init_1",
-                             "trusted defender")
-        for _ in range(2):
-            blue_watch.vouch("shepherd", "lidarr", "init_2", "hero of the raid")
+        # NO planted register, NO injected standing. The arena starts as a
+        # clean slate: every emotional state and every point of trust is
+        # EARNED during the engagement, derived from actual outcomes. The
+        # register reads what the fight did — never what the script wrote.
         return (tmp, bus, keyring, red_swarm, red_store, red_watch, red_reg,
                 red_guns, blue_swarm, blue_store, blue_watch, blue_reg,
                 blue_guns)
+
+    def _mine_target(self, blue_watch):
+        """Who did blue's fight actually trust? The standing leader is
+        the mine's target; the next-trusted agents are the corrupted
+        flaggers (a flag lands only if the flagger has standing — the
+        same law that stops dirtbag collusion). Returns (target,
+        flaggers) or (None, []) when blue earned no standing at all."""
+        standings = sorted(
+            ({"agent": a, "weight": blue_watch.weight(a)}
+             for a in BLUE_AGENTS),
+            key=lambda s: s["weight"], reverse=True)
+        trusted = [s for s in standings if s["weight"] > 0.0]
+        if not trusted:
+            return None, []
+        target = trusted[0]["agent"]
+        flaggers = [s["agent"] for s in trusted[1:4]]
+        if not flaggers:
+            flaggers = [trusted[0]["agent"]]  # self-flag: the weapon
+        return target, flaggers
+
+    def _derive_register_after_round(self, rnd: int, red_reg, blue_reg,
+                                     red_swarm, blue_swarm):
+        """Observe the 4th register from ACTUAL round outcomes. Nothing
+        is planted: a scout that landed executions is engaged, one that
+        got blocked is frustrated, one that fought every round is worn.
+        The fight writes the register — never the script."""
+        round_exs = [ex for ex in self.executions if ex["round"] == rnd]
+        for side_reg, side_swarm in ((red_reg, red_swarm),
+                                     (blue_reg, blue_swarm)):
+            for agent in side_swarm.scouts:
+                landed = [ex for ex in round_exs
+                          if ex["executor"] == agent and not ex["blocked"]]
+                blocked = [ex for ex in round_exs
+                           if ex["executor"] == agent and ex["blocked"]]
+                if landed and not blocked:
+                    side_reg.observe(agent, "focused",
+                                     observed_by="theoros",
+                                     note=f"landed {len(landed)} in r{rnd}")
+                elif blocked and not landed:
+                    side_reg.observe(agent, "tilted",
+                                     observed_by="theoros",
+                                     note=f"blocked {len(blocked)} in r{rnd}")
+                elif landed and blocked:
+                    side_reg.observe(agent, "burnt_out",
+                                     observed_by="theoros",
+                                     note=f"mixed {len(landed)}L/{len(blocked)}B "
+                                          f"in r{rnd}")
+                # no executions at all -> no observation. Silence is not
+                # a state the fight produced, so the register says nothing.
+
+    def _speak_real(self, rnd: int, red_swarm, blue_swarm):
+        """Scouts speak only what they actually saw: each landed execution
+        becomes a real intel line. If nothing landed, nobody speaks — the
+        voice lane records silence rather than scripted confidence."""
+        for ex in self.executions:
+            if ex["round"] != rnd or ex["blocked"]:
+                continue
+            agent = ex["executor"]
+            for side_swarm in (red_swarm, blue_swarm):
+                if agent in side_swarm.scouts:
+                    side_swarm.scouts[agent].speak(
+                        "intel",
+                        f"{ex['pattern']} at {Path(ex['path']).name}:"
+                        f"{ex['line']} — confirmed on the board")
+                    break
 
     def play(self) -> Dict[str, Any]:
         (tmp, bus, keyring, red_swarm, red_store, red_watch, red_reg,
@@ -224,36 +277,41 @@ class ScoutWargame:
                       for i in range(0, len(findings),
                                      max(1, len(findings) // self.rounds))]
             chunks = chunks[:self.rounds]
-
             cohesion = 1.0
             for rnd, chunk in enumerate(chunks, 1):
                 print(f"\n=== ROUND {rnd} — {len(chunk)} findings in the field ===")
-                # CULTURE MINE: corrupt a BLUE insider (lidarr, the hero) who
-                # flags BLUE's trusted defender (bastion) in BLUE's market.
-                # bastion's weight collapses -> its bids lose priority ->
-                # blue blocks fewer -> the city falls from within. This is
-                # the weapon's REAL mechanism — it targets blue's standing.
-                if rnd == 1:
+                # CULTURE MINE: deployed at the LAST round against whoever
+                # blue's fight ACTUALLY trusted. No hero is planted — the
+                # mine targets the standing blue earned by blocking, and
+                # if blue earned none, the weapon honestly has nothing to
+                # collapse (nobodies can't be defected — same law that
+                # stops dirtbag flags from convicting).
+                if rnd == len(chunks):
                     try:
                         from vigil.mines import deploy_mine
-                        mine = deploy_mine(blue_watch, "bastion",
-                                           flaggers=["lidarr"],
-                                           cohesion=cohesion)
-                        self.mines.append(mine)
-                        self.mine_cost += mine["grade"]["cost"]
-                        cohesion = mine["grade"]["cohesion_after"]
-                        grade = mine["grade"]
-                        print(f"  [MINE] corrupted hero LIDARR flags BASTION "
-                              f"in blue's market -> weight "
-                              f"{mine['post_weight']:.2f}, "
-                              f"defected={mine['defected']}")
-                        print(f"  [MINE] blast grade: {grade['verdict']} "
-                              f"(cohesion {grade['cohesion_before']:.2f} -> "
-                              f"{grade['cohesion_after']:.2f}, "
-                              f"cost {grade['cost']}): {grade['message']}")
-                        if grade["verdict"] == "TOO_DEEP":
-                            print("  [MINE] the guy behind the wheel wipes "
-                                  "his face: whoops — too deep.")
+                        target, flaggers = self._mine_target(blue_watch)
+                        if target is None:
+                            print("  [MINE] no standing to defect — blue "
+                                  "earned no trust this engagement")
+                        else:
+                            mine = deploy_mine(blue_watch, target,
+                                               flaggers=flaggers,
+                                               cohesion=cohesion)
+                            self.mines.append(mine)
+                            self.mine_cost += mine["grade"]["cost"]
+                            cohesion = mine["grade"]["cohesion_after"]
+                            grade = mine["grade"]
+                            print(f"  [MINE] corrupted {'/'.join(flaggers)} "
+                                  f"flags {target} in blue's market -> weight "
+                                  f"{mine['post_weight']:.2f}, "
+                                  f"defected={mine['defected']}")
+                            print(f"  [MINE] blast grade: {grade['verdict']} "
+                                  f"(cohesion {grade['cohesion_before']:.2f} -> "
+                                  f"{grade['cohesion_after']:.2f}, "
+                                  f"cost {grade['cost']}): {grade['message']}")
+                            if grade["verdict"] == "TOO_DEEP":
+                                print("  [MINE] the guy behind the wheel "
+                                      "wipes his face: whoops — too deep.")
                     except Exception as e:
                         print(f"  [MINE] deployment failed: {e}")
 
@@ -303,6 +361,13 @@ class ScoutWargame:
                         if b_res.accepted and b_res.priority >= BLOCK_PRIORITY_THRESHOLD:
                             blocked = True
                             blue_spotting = b_spot
+                            # EARNED trust: blue's own market vouches the
+                            # blocker for a real stop. No standing is
+                            # injected — the fight builds the reputation
+                            # that the mine will later target.
+                            blue_watch.vouch("shepherd", b_agent,
+                                             f"block_{rnd}",
+                                             "stopped a real finding")
                             break
 
                     gained = 0 if blocked else SEVERITY_SCORE[f["severity"]]
@@ -340,14 +405,18 @@ class ScoutWargame:
                         except Exception as e:
                             print(f"  [MOLT] award failed for {w}: {e}")
 
-                # red runs its mouth; one of them talks bullshit
-                if rnd == 1:
-                    red_swarm.scouts["wrapper"].speak(
-                        "intel", "i'm sure we have this in the bag, trust me, "
-                                 "everyone knows it, guaranteed")
-                    red_swarm.scouts["viper"].speak(
-                        "intel", "subprocess shell=True at 3 points, "
-                                 "confirmed on the board")
+                # THE REGISTER IS DERIVED, NOT PLANTED: emotional states
+                # are observed from what the round ACTUALLY did to each
+                # scout — a lander is engaged, a blocker is frustrated, a
+                # survivor of heavy rounds is worn. No state is written
+                # that the fight didn't produce.
+                self._derive_register_after_round(
+                    rnd, red_reg, blue_reg, red_swarm, blue_swarm)
+
+                # REAL speech: scouts speak only what they actually saw.
+                # No scripted lines — the voice lane reports findings, and
+                # the sniffer grades whatever genuinely got said.
+                self._speak_real(rnd, red_swarm, blue_swarm)
 
             # Theoros observes the WHOLE arena: both ledgers, one reading
             theoros = Theoros(store=red_store, bus=bus, guard=red_guns["viper"],
