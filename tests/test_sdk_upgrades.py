@@ -14,7 +14,7 @@ import tempfile
 import unittest
 
 from sdk.spyglass_sdk import (
-    Spotting, PheromoneSink, Scout, SpottingBoard, BidResult, phm_id,
+    Spotting, PheromoneSink, Scout, SpottingBoard, Swarm, BidResult, phm_id,
 )
 from sdk.integrity import CommandGuard, IntegrityError, ensure_key
 from sdk.geometry import WhorlWeave, WeavePosition
@@ -301,6 +301,35 @@ class TestFabrication(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # 4. GEOMETRIC BIDDING (SpottingBoard) + BACKWARD COMPAT
 # ---------------------------------------------------------------------------
+
+class TestSwarm(unittest.TestCase):
+
+    def test_swarm_scouts_share_one_board(self):
+        weave = WhorlWeave([])
+        swarm = Swarm(weave=weave)
+        a = swarm.add_scout("a", latent={"mission_priority": 0.3})
+        b = swarm.add_scout("b", latent={"mission_priority": 1.0})
+        self.assertIs(a.board, b.board)  # the unspoken unity line
+        self.assertIs(a.sink, b.sink)
+
+        s = a.spot("scout_event", "/tmp/shared_target", {"info": "found"})
+        self.assertTrue(a.bid(s))                       # first claim
+        res = b.bid(s)                                  # same board -> contends
+        self.assertTrue(res.accepted)
+        self.assertEqual(res.reason, "displaced")
+        self.assertEqual(res.displaced, "a")
+
+    def test_swarm_register_slots_into_weave(self):
+        swarm = Swarm(weave=WhorlWeave([]))
+        swarm.add_scout("a", ring=2)
+        self.assertEqual(swarm.weave.position("a").ring, 2)
+
+    def test_swarm_rejects_duplicate_scout(self):
+        swarm = Swarm()
+        swarm.add_scout("a")
+        with self.assertRaises(ValueError):
+            swarm.add_scout("a")
+
 
 class TestSpottingBoard(unittest.TestCase):
 

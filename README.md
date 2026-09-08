@@ -25,21 +25,22 @@ registry).
 
 ## Usage
 ```python
-from sdk.spyglass_sdk import Scout, PheromoneSink
+from sdk.spyglass_sdk import Swarm
 from sdk.integrity import CommandGuard
 from sdk.geometry import WhorlWeave
-from sdk.fabrication import FabricationDetector
 
-# Local-key integrity + weave geometry + event bus
-guard = CommandGuard()                      # or CommandGuard(key=b"...")
+# One swarm = ONE shared board (the unity line) + weave geometry + integrity
 weave = WhorlWeave(["scout-1", "scout-2"], rings={"scout-2": 2})
-sink = PheromoneSink(event_bus=bus, guard=guard)
-scout = Scout("scout-1", sink, weave=weave, latent={"mission_priority": 0.9})
+swarm = Swarm(sink=PheromoneSink(event_bus=bus, guard=CommandGuard(key=b"...")),
+              weave=weave)
+scout = swarm.add_scout("scout-1", latent={"mission_priority": 0.9})
+scout2 = swarm.add_scout("scout-2", latent={"health": 0.6})
 
 s = scout.spot("scout_event", "target_path", {"info": "found something"})
-assert guard.verify(s)                      # signed before emission
+assert scout.sink.guard.verify(s)           # signed before emission
 
 accepted = scout.bid(s)                     # geometric priority, not FCFS
+accepted2 = scout2.bid(s)                   # contends on the SAME board
 report = scout.audit_self()                 # fabrication cross-check
 assert report.consistent
 ```
@@ -48,8 +49,8 @@ assert report.consistent
 ```bash
 python3 sdk/spyglass_sdk.py demo
 ```
-Runs one signed spotting, three weave-aware bids (displacement included),
-integrity verification, and a fabrication self-audit.
+Runs one signed spotting, three weave-aware bids on a single shared board
+(displacement included), integrity verification, and a fabrication self-audit.
 
 ## Tests
 ```bash

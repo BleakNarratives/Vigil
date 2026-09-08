@@ -67,10 +67,11 @@
       "path": "sdk/spyglass_sdk.py",
       "role": "canonical surface: Spotting, PheromoneSink, Scout, SpottingBoard — wires the three capability modules",
       "version": "1",
-      "public_api": ["Spotting", "PheromoneSink(store, event_bus, guard)", "PheromoneSink.report(spotting)", "Scout(agent_id, sink, weave, latent, board)", "Scout.spot()", "Scout.bid()", "Scout.audit_self()", "SpottingBoard(weave)", "SpottingBoard.bid(spotting, latent, source_position)", "BidResult", "phm_id"],
+      "public_api": ["Spotting", "PheromoneSink(store, event_bus, guard)", "PheromoneSink.report(spotting)", "Scout(agent_id, sink, weave, latent, board)", "Scout.spot()", "Scout.bid()", "Scout.audit_self()", "Swarm(sink, weave, guard, store, event_bus)", "Swarm.add_scout(agent_id, latent, ring)", "SpottingBoard(weave)", "SpottingBoard.bid(spotting, latent, source_position)", "BidResult", "phm_id"],
       "extension_points": [
         "PheromoneSink.report() — change the emit order/persistence layer (MCP transport, Redis) while keeping sign -> publish -> persist",
-        "SpottingBoard.bid() — new conflict-resolution policy on top of the geometric priority"
+        "SpottingBoard.bid() — new conflict-resolution policy on top of the geometric priority",
+        "Swarm.add_scout() — lifecycle hooks (spawn/kill/retire a scout) while keeping the single shared board"
       ],
       "invariants": [
         "sink.report() signs before it publishes or persists",

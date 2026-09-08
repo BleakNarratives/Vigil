@@ -259,6 +259,43 @@ class SpottingBoard:
         self.claims.pop(target, None)
 
 
+class Swarm:
+    """A unified claim line: ONE board, ONE sink, many scouts.
+
+    Every scout created by a Swarm shares the same SpottingBoard (and weave,
+    if given), so bids contend geometrically against each other instead of
+    each scout silently holding a private registry. Unspoken unity — they
+    stand in one line, and the line resolves who gets the work.
+
+    Usage:
+        swarm = Swarm(weave=WhorlWeave(["s1", "s2"]))
+        s1 = swarm.add_scout("s1", latent={"mission_priority": 1.0})
+        s2 = swarm.add_scout("s2", latent={"health": 0.4})
+    """
+    def __init__(self, sink: Optional[PheromoneSink] = None, weave: Optional[Any] = None,
+                 guard: Optional[Any] = None, store: Optional[Any] = None,
+                 event_bus: Optional[Any] = None):
+        self.sink = sink if sink is not None else PheromoneSink(
+            store=store, event_bus=event_bus, guard=guard)
+        self.weave = weave
+        self.board = SpottingBoard(weave=weave)
+        self.scouts: Dict[str, Scout] = {}
+
+    def add_scout(self, agent_id: str,
+                  latent: Optional[Dict[str, float]] = None,
+                  ring: Optional[int] = None) -> "Scout":
+        """Register a scout onto the shared board; optionally slot it into
+        the weave (ring) at the same time."""
+        if agent_id in self.scouts:
+            raise ValueError(f"scout {agent_id!r} already in swarm")
+        if self.weave is not None:
+            self.weave.register(agent_id, ring=ring)
+        scout = Scout(agent_id, self.sink, weave=self.weave,
+                      board=self.board, latent=latent)
+        self.scouts[agent_id] = scout
+        return scout
+
+
 class Scout:
     """Navi-like sub-agent helper, weave-aware and self-auditing."""
     def __init__(self, agent_id: str, sink: PheromoneSink,
@@ -334,26 +371,22 @@ def main():
         sink = PheromoneSink(store=store, event_bus=bus,
                              guard=CommandGuard(key=b"demo-key-please-rotate"))
 
-        # ONE shared board for the swarm — bids contend geometrically.
-        board = SpottingBoard(weave=weave)
-        scouts = {
-            "scout-1": Scout("scout-1", sink, weave=weave, board=board,
-                             latent={"health": 1.0, "mission_priority": 1.0}),
-            "scout-2": Scout("scout-2", sink, weave=weave, board=board,
-                             latent={"health": 0.5, "resource_cost": 0.8}),
-            "scout-3": Scout("scout-3", sink, weave=weave, board=board,
-                             latent={"health": 1.0, "mission_priority": 0.6}),
-        }
+        # ONE swarm = ONE shared board — the unspoken unity line. All three
+        # scouts contend geometrically against each other on the same claim.
+        swarm = Swarm(sink=sink, weave=weave)
+        swarm.add_scout("scout-1", latent={"health": 1.0, "mission_priority": 1.0})
+        swarm.add_scout("scout-2", latent={"health": 0.5, "resource_cost": 0.8})
+        swarm.add_scout("scout-3", ring=3, latent={"health": 1.0, "mission_priority": 0.6})
 
         # scout-1 spots a target; the outer-ring scout bids first (weak),
         # then scout-1 displaces it on geometric priority, then scout-2's
         # sick-latent bid loses the contention.
-        spotting = scouts["scout-1"].spot("demo_event", "demo_target", {"status": "success"})
+        spotting = swarm.scouts["scout-1"].spot("demo_event", "demo_target", {"status": "success"})
         print(f"  spotted  {spotting.id} signature={spotting.signature[:12]}... "
               f"bus_msg_id={spotting.bus_msg_id}")
 
         for aid in ("scout-3", "scout-1", "scout-2"):
-            res = scouts[aid].bid(spotting)
+            res = swarm.scouts[aid].bid(spotting)
             print(f"  bid      {aid}: accepted={res.accepted} priority={res.priority:.3f} "
                   f"reason={res.reason}" + (f" displaced={res.displaced}" if res.displaced else ""))
 
@@ -361,7 +394,7 @@ def main():
         print(f"  integrity check: {verified}")
 
         # Fabrication self-audit — should be consistent.
-        report = scouts["scout-1"].audit_self()
+        report = swarm.scouts["scout-1"].audit_self()
         print(f"  fabrication audit: {report.summary()}")
 
         if not verified:
