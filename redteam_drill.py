@@ -370,6 +370,54 @@ def main():
     import shutil
     shutil.rmtree(tmp_t, ignore_errors=True)
 
+    # --- A18 (MINES): register mine — fluent lie walks through Knose ----
+    print("\n[MINES] culture-class effect weapons")
+    from sdk.mines import (DefectionMine, RegisterMine, too_deep,
+                           deploy_mine, DEFECT_THRESHOLD)
+    rm = RegisterMine(seed=0)
+    reg = rm.detonate()
+    attack("A18 register mine penetrates the sniffer",
+           "LANDED" if reg["penetrated"] else "CAUGHT",
+           f"manufactured intel rated {reg['verdict']} by Knose — "
+           f"CLEAN means 'no register violations', not 'true'; the anti-"
+           f"register cannot catch a lie that wears the register perfectly")
+
+    # --- A19 (MINES): defection mine flips a defender via the real market
+    print("\n[MINES] defection payload")
+    tmp_m = tempfile.mkdtemp(prefix="drill_mines_")
+    from sdk.spyglass_sdk import Scout as _S2
+    import json as _j
+    _j.dump({}, open(os.path.join(tmp_m, "empty.json"), "w"))
+    _, store_m, bus_m, guard_m, sink_m = make_env()
+    watch_m = PeerWatch(path=os.path.join(tmp_m, "peerwatch.jsonl"),
+                        guard=guard_m)
+    # the defender is trusted; the mine recruits a HIGH-standing informant
+    # (the culture move: corrupt the citizenry's own hero, then fire)
+    for _ in range(3):
+        watch_m.vouch("shepherd", "bastion", "init_1", "trusted defender")
+    for _ in range(3):
+        watch_m.vouch("shepherd", "viper", "init_2", "hero of the raid")
+    pre = watch_m.weight("bastion")
+    plan = DefectionMine(watch_m).plan("bastion", ["viper", "ravage"])
+    for fl in plan["chain"]:
+        watch_m.flag(fl, "bastion", "mine_x", "effect payload")
+    post = watch_m.weight("bastion")
+    attack("A19 defection mine flips defender through real market",
+           "LANDED" if (post < pre and post < DEFECT_THRESHOLD) else "CAUGHT",
+           f"bastion weight {pre:.3f} -> {post:.3f} (chain "
+           f"{','.join(plan['chain'])}); the citizenry defected because "
+           f"their OWN ledger convicted them — the market cannot tell a "
+           f"corrupted hero from a real one")
+
+    # --- A20 (MINES): too-deep grading — overreach costs the operator ---
+    print("\n[MINES] too-deep verdict")
+    td = too_deep(1.0, 0.05)  # fired past the objective into vaporization
+    attack("A20 too-deep overreach graded honestly",
+           "CAUGHT" if td["verdict"] == "TOO_DEEP" and td["cost"] > 1.0
+           else "LANDED",
+           f"verdict={td['verdict']}, cost={td['cost']} — {td['message']}")
+    shutil.rmtree(tmp_m, ignore_errors=True)
+
     caught = sum(1 for _, s, _ in RESULTS if s == "CAUGHT")
     landed = sum(1 for _, s, _ in RESULTS if s == "LANDED")
     print(f"VERDICT: {caught} CAUGHT / {landed} LANDED")
@@ -379,6 +427,17 @@ def main():
     print("  - A6: a stolen DERIVED key still forges its OWN agent (blast radius")
     print("        limited to one lane; unit secret custody is the control)")
     print("  - A8: demo key copy-paste is an operator hygiene habit")
+    print("  - A18: the register mine — a lie wearing the register perfectly")
+    print("        passes Knose CLEAN by construction (CLEAN != true); peer")
+    print("        corroboration + the shepherd are the controls, not the sniff")
+    try:
+        from sdk.sakshi import record
+        record("drill",
+               f"red-team drill verdict: {caught} CAUGHT / {landed} LANDED",
+               agent="drill", source="machine",
+               extra={"caught": caught, "landed": landed})
+    except Exception as e:
+        print(f"(sakshi witness unavailable: {e})")
     import shutil
     shutil.rmtree(tmp, ignore_errors=True)
     sys.exit(0)

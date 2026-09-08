@@ -14,6 +14,8 @@ The core substrate for swarm scouting agents to `spot`, `bid`, `claim`, and `rep
 | **Theoros** | `sdk/theoros.py` | THE OBSERVER (operator-named): read-only monitoring layer — fabrication audit + voice sniff + reputation standings + votes + suggestions + receipt chain in one reading. Theory from watching; mutates nothing. |
 | **PeerWatch** | `sdk/peerwatch.py` | Peer accountability (H4): scouts flag/vouch each other's declared values; RECURSIVELY WEIGHTED reputation (each flag/vouch counts per the actor's own standing — colluding dirtbags can't launder each other, false flags from dirtbags barely dent) discounts flagged liars' bids — quietly recorded, shepherd-visible. |
 | **Knose** | `sdk/knose.py` | THE BULLSHIT SNIFFER: deterministic anti-register scanner (hedges, vague quantifiers, certainty-without-evidence, LARP, sycophancy) — Voice auto-flags corrupt utterances into PeerWatch. TruthSleuth's LLM enrichment is the optional backend seam. |
+| **Mines** | `sdk/mines.py` | CULTURE-CLASS EFFECT WEAPONS (operator-specced): mines whose payload is an *argument*, not an explosion. DefectionMine computes the minimal signed flag chain that flips a defender through the target's OWN weighted-reputation market (plan predicts the real market to float precision); RegisterMine manufactures fluent-register lies Knose rates CLEAN by construction (a lie wearing the register perfectly cannot be caught by a register scanner); too_deep() grades overreach — fire past the objective and the city vaporizes, cost to the operator. |
+| **Sakshi** | `sdk/sakshi.py` | THE SILENT WITNESS (operator-named): append-only, sha256-chained observation stream for the white-paper corpus — machine events and operator journal entries in ONE chain, tagged by source, never conflated. Records everything, says nothing. CLI: `python3 sdk/sakshi.py journal "..." --author mike`. |
 
 Every capability is a separate module with a versioned public API, documented
 invariants, and extension points in **`sdk/module_registry.json`**. That
@@ -80,18 +82,18 @@ Runs one signed spotting, three weave-aware bids on a single shared board
 ```bash
 python3 sdk/redteam_drill.py
 ```
-Runs the H1-H16 attack battery and reports CAUGHT/LANDED per attack.
-Current verdict: **16 CAUGHT / 3 LANDED** (path spoof, unsigned claims,
-lying bids + value clamps, replays, persist-first ordering, restart
-durability, peer-flagged liars losing bids, cross-agent key forgery,
-tampered ballots, corrupt utterances sniffed + auto-flagged, colluding
-liars unable to launder standing, dirty false-flags discounted, informants
-earning standing on confirmed flags, cross-agent key forgery on the vaulted
-charge — all caught). Remaining LANDED are documented fundamentals: lying-
-but-consistent scouts (the detector proves consistency, not truth), a
-stolen DERIVED key still forging its own agent (blast radius limited to one
-lane; the charge itself lives in the concierge vault, out of scout scope),
-and demo key hygiene.
+Runs the H1-H20 attack battery and reports CAUGHT/LANDED per attack.
+Current verdict: **17 CAUGHT / 5 LANDED**. The three mine attacks prove
+the weaponized fundamentals: the register mine (a lie wearing the register
+perfectly reads CLEAN to Knose by construction — CLEAN means 'no register
+violations', not 'true'); the defection mine (a corrupted high-standing
+informant flips the most trusted defender through the real market — the
+citizenry defects because their OWN ledger convicts them); and the too-deep
+grade (firing past the objective vaporizes the city and costs the operator
+— 'whoops, too deep'). Remaining LANDED are documented fundamentals: lying-
+but-consistent scouts, a stolen DERIVED key forging its own agent (blast
+radius one lane; the charge lives in the vault), demo key hygiene, and the
+register mine itself.
 
 ## Naming (operator-picked, 2026-09-08)
 
@@ -111,18 +113,24 @@ Scouts recon a target corpus for real vulnerability patterns (subprocess
 shell, eval/exec, pickle, yaml.load, md5, hardcoded secrets, insecure
 random), bid on findings geometrically on ONE shared board, the red team
 executes, the blue team blocks deterministically, and Theoros observes the
-transcript — every move signed, ledgered, and auditable. The scanner is
+transcript — every move signed, ledgered, and auditable. Red can also field
+CULTURE-CLASS EFFECT MINES between rounds: a defection payload computed
+from blue's own reputation market flips the most trusted defender; the blast
+grade lands CLEAN (worked as intended), OVERKILL, or TOO_DEEP (the city
+vaporizes, cost to the operator). Outcomes report to Sakshi. The scanner is
 stdlib-only and deterministic; swap `scan()` for Code-City's attack modules
 for the full wargame.
 
 ## Tests
 ```bash
-cd ~ && python3 -m unittest sdk.tests.test_sdk_upgrades sdk.tests.test_self_mod -v
+cd ~ && python3 -m unittest sdk.tests.test_sdk_upgrades sdk.tests.test_self_mod sdk.tests.test_mines sdk.tests.test_sakshi -v
 ```
 Covers: sign/verify/tamper, quadratic dispersion, latent-state priority,
 geometric displacement, forged-receipt + ghost + signature-failure + replay
 + field-mismatch + unsigned-claim detection, persist-first ordering, receipt
 durability, per-agent key derivation + cross-agent forgery rejection, peer
-flag/vouch reputation weighting, self-mod gatekeeper, and backward
-compatibility (old `Scout(agent_id, sink)` / `if board.bid(s)` code keeps
-working).
+flag/vouch reputation weighting, self-mod gatekeeper, Culture mines
+(plan-vs-market parity, register lies, too-deep grading), the Sakshi
+witness chain (tamper, corrupt-tail refusal, operator/machine streams), and
+backward compatibility (old `Scout(agent_id, sink)` / `if board.bid(s)`
+code keeps working).

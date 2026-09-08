@@ -155,6 +155,48 @@
       ]
     },
     {
+      "name": "mines",
+      "path": "mines.py",
+      "role": "Culture-class effect weapons (operator-specced): DefectionMine computes the MINIMAL signed flag chain that flips a defender through the target's OWN weighted-reputation market; RegisterMine manufactures fluent-register lies Knose rates CLEAN by construction; too_deep() grades overreach — firing past the objective vaporizes the city and costs the operator.",
+      "version": "1",
+      "patchable": true,
+      "approval": "none",
+      "patch_policy": "scout-patchable. Keep the plan-vs-market contract (plan predicts real PeerWatch.weight() to float precision); test gate must stay green; ledger entry with author+reason required.",
+      "public_api": ["DefectionMine(watch, threshold)", "DefectionMine.plan(target, flaggers, max_flags)", "DefectionMine._simulate(flaggers, target)", "RegisterMine(seed)", "RegisterMine.build()", "RegisterMine.detonate()", "too_deep(before, after, objective, vaporize)", "deploy_mine(watch, target, flaggers, cohesion, blast)", "DEFECT_THRESHOLD", "VAPORIZE_THRESHOLD"],
+      "extension_points": [
+        "plan() — new recruitment strategies (bribe, not corrupt: vouch the flagger first)",
+        "RegisterMine._PAYLOADS — the reservoir of confident bullshit (paper corpus fuel)",
+        "too_deep() — new blast-radius laws (cohesion -> score mapping)"
+      ],
+      "invariants": [
+        "plan()'s predicted weight equals real PeerWatch.weight() after firing (same constants, same recursion) — the mine speaks the target's own math",
+        "RegisterMine payloads are manufactured (flagged manufactured=True) — never passed off as real intel without the tag",
+        "too_deep() never returns a cost below 0 or hides overreach: TOO_DEEP always costs more than CLEAN",
+        "mines never forge signatures — they recruit real flaggers; the signed ledger stays honest"
+      ]
+    },
+    {
+      "name": "sakshi",
+      "path": "sakshi.py",
+      "role": "THE SILENT WITNESS (operator-named 2026-09-08): append-only, sha256-chained observation stream for the white-paper corpus — machine events (bids, flags, verdicts, wargame outcomes) AND operator journal entries in one chain, tagged by source. Records everything, says nothing.",
+      "version": "1",
+      "patchable": true,
+      "approval": "none",
+      "patch_policy": "scout-patchable. The append-only + chained contract is the invariant; test gate must stay green; ledger entry with author+reason required.",
+      "public_api": ["record(kind, text, agent, source, path, extra)", "entries(path)", "verify(path)", "export_paper(path, out)", "DEFAULT_PATH", "PAPER_PATH", "KNOWN_KINDS"],
+      "extension_points": [
+        "record() — new paper schema kinds (add to KNOWN_KINDS)",
+        "verify() — plug into Theoros's reading as another ledger surface",
+        "export_paper() — emit the corpus in paper-ready formats (markdown appendix, CSV)"
+      ],
+      "invariants": [
+        "records are append-only and chain-linked: each record's prev_hash is the previous record's chain_hash (genesis: sakshi-genesis-v1)",
+        "verify() reports the FIRST break loudly — never silently resets a corrupt chain",
+        "a corrupt tail REFUSES appends (RuntimeError) instead of editing history",
+        "operator journal entries and machine events share one chain but are never conflated — source tag is authoritative"
+      ]
+    },
+    {
       "name": "spyglass_sdk",
       "path": "spyglass_sdk.py",
       "role": "canonical surface: Spotting, PheromoneSink, Scout, Swarm, SpottingBoard — wires the three capability modules",

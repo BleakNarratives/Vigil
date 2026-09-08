@@ -115,6 +115,8 @@ class ScoutWargame:
         self.score = 0
         self.blocks = 0
         self.executions: List[Dict[str, Any]] = []
+        self.mines: List[Dict[str, Any]] = []
+        self.mine_cost = 0.0
 
     def _make_swarm(self) -> Swarm:
         tmp = tempfile.mkdtemp(prefix="spyglass_wargame_")
@@ -143,8 +145,37 @@ class ScoutWargame:
                       for i in range(0, len(findings), max(1, len(findings) // self.rounds))]
             chunks = chunks[:self.rounds]
 
+            cohesion = 1.0
             for rnd, chunk in enumerate(chunks, 1):
                 print(f"\n=== ROUND {rnd} — {len(chunk)} findings in the field ===")
+                # culture-class effect weapon: red may field a defection mine
+                # against blue's most trusted defender. the blast is computed
+                # from blue's OWN reputation market — absolute, until it goes
+                # too deep and vaporizes the objective.
+                if rnd == 1:
+                    try:
+                        from sdk.mines import deploy_mine
+                        target = "bastion"  # the immovable rollback — most trusted
+                        mine = deploy_mine(watch, target,
+                                           flaggers=list(RED_AGENTS),
+                                           cohesion=cohesion)
+                        self.mines.append(mine)
+                        self.mine_cost += mine["grade"]["cost"]
+                        cohesion = mine["grade"]["cohesion_after"]
+                        grade = mine["grade"]
+                        print(f"  [MINE] defection payload on {target.upper()} "
+                              f"via {','.join(mine['plan']['chain']).upper()} "
+                              f"-> weight {mine['post_weight']:.2f}, "
+                              f"defected={mine['defected']}")
+                        print(f"  [MINE] blast grade: {grade['verdict']} "
+                              f"(cohesion {grade['cohesion_before']:.2f} -> "
+                              f"{grade['cohesion_after']:.2f}, "
+                              f"cost {grade['cost']}): {grade['message']}")
+                        if grade["verdict"] == "TOO_DEEP":
+                            print("  [MINE] the guy behind the wheel wipes his "
+                                  "face: whoops — too deep.")
+                    except Exception as e:
+                        print(f"  [MINE] deployment failed: {e}")
                 for i, f in enumerate(chunk):
                     agent = RED_AGENTS[(int(hashlib.sha256(f["path"].encode())
                                              .hexdigest(), 16) + i) % len(RED_AGENTS)]
@@ -193,6 +224,10 @@ class ScoutWargame:
                 "findings": len(findings), "executions": len(self.executions),
                 "theoros_consistent": bool(reading),
                 "corrupt_speakers": len(reading.corrupt_speakers),
+                "mines": self.mines,
+                "mine_cost": self.mine_cost,
+                "net_score": max(0, self.score - int(self.mine_cost)),
+                "cohesion": cohesion,
                 "reading": reading,
             }
         finally:
@@ -214,6 +249,26 @@ def main():
           f"{result['executions']} executions)")
     print(f"Theoros consistent: {result['theoros_consistent']} | "
           f"corrupt speakers sniffed: {result['corrupt_speakers']}")
+    if result["mines"]:
+        print(f"Effect weapons: {len(result['mines'])} mine(s), "
+              f"blast cost {result['mine_cost']} -> "
+              f"NET {result['net_score']} pts")
+        print(f"Blue cohesion after mines: {result['cohesion']:.2f}")
+    try:
+        from sdk.sakshi import record
+        record("wargame",
+               f"engagement closed: {result['score']} pts, "
+               f"{result['findings']} findings, {result['blocks']} blue blocks, "
+               f"{result['executions']} executions; Theoros consistent="
+               f"{result['theoros_consistent']}",
+               agent="wargame", source="machine",
+               extra={"score": result["score"],
+                      "findings": result["findings"],
+                      "blocks": result["blocks"],
+                      "executions": result["executions"],
+                      "corrupt_speakers": result["corrupt_speakers"]})
+    except Exception as e:  # the witness must never crash the fight
+        print(f"(sakshi witness unavailable: {e})")
     sys.exit(0)
 
 
