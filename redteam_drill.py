@@ -30,6 +30,8 @@ from sdk.spyglass_sdk import (  # noqa: E402
 from sdk.integrity import CommandGuard  # noqa: E402
 from sdk.geometry import WhorlWeave  # noqa: E402
 from sdk.fabrication import FabricationDetector  # noqa: E402
+from sdk.keyring import AgentKeyring  # noqa: E402
+from sdk.peerwatch import PeerWatch  # noqa: E402
 
 TEST_KEY = b"red-team-key-please-rotate-me"
 
@@ -173,9 +175,10 @@ def main():
                                   "decay_rate": forged.decay_rate,
                                   "payload": dict(forged.payload)}})
     rep = audit_ok(store2, bus2, guard2, "honest")
-    attack("A6 forged signed pheromone", "LANDED",
-           f"stolen key + honest agent id audits consistent={rep.consistent} "
-           f"(verifier must live outside agent scope — deployment phase)")
+    attack("A6 stolen derived key", "LANDED",
+           f"stolen derived key + honest agent id audits consistent={rep.consistent} "
+           f"(keyring limits blast radius to ONE agent; unit secret custody "
+           f"is the deployment-phase control)")
     import shutil
     shutil.rmtree(tmp2, ignore_errors=True)
 
@@ -192,6 +195,39 @@ def main():
            "CAUGHT" if seen_at_publish.get("store_has_record") else "LANDED",
            "persist-first sink: subscriber saw the store record already written")
     bus.on_publish = None
+
+    # --- A10 (H4): peer accountability — flagged liar loses the bid --------
+    print("\n[H4] peer accountability")
+    watch = PeerWatch(path=os.path.join(tmp, "peerwatch.jsonl"), guard=guard)
+    watch.flag("honest", "liar", "phm_1", "declared strength is fantasy")
+    watch.flag("far", "liar", "phm_1", "agreed — fabricating")
+    board_pw = SpottingBoard(weave=weave, peer_watch=watch)
+    s_liar_pw = Spotting(id=phm_id(), ts="1", source="liar", kind="k",
+                         target="/tmp/peer-prize", confidence=1.0, strength=1.0)
+    s_honest_pw = Spotting(id=phm_id(), ts="1", source="honest", kind="k",
+                           target="/tmp/peer-prize", confidence=0.5, strength=1.0)
+    r_l = board_pw.bid(s_liar_pw, latent={"mission_priority": 1.0})
+    r_h = board_pw.bid(s_honest_pw, latent={"mission_priority": 1.0})
+    attack("A10 flagged liar loses bid",
+           "CAUGHT" if r_l.priority < r_h.priority else "LANDED",
+           f"peer weight: liar {r_l.priority:.3f} vs honest {r_h.priority:.3f} "
+           f"(flags discount the liar)")
+
+    # --- A11 (H1): per-agent keys — cross-agent forgery fails --------------
+    print("\n[H1] per-agent keys")
+    keyring = AgentKeyring(b"unit-secret-please-rotate")
+    gun_honest = keyring.issue("honest")
+    gun_liar = keyring.issue("liar")
+    s_ok = Spotting(id=phm_id(), ts="1", source="honest", kind="k",
+                    target="/tmp/real", confidence=0.5, strength=1.0)
+    gun_honest.sign(s_ok)
+    s_forged = Spotting(id=phm_id(), ts="1", source="honest", kind="k",
+                        target="/tmp/forged", confidence=0.5, strength=1.0)
+    gun_liar.sign(s_forged)  # liar tries to sign AS honest with its own gun
+    ok = keyring.verify_signature("honest", s_ok)
+    bad = keyring.verify_signature("honest", s_forged)
+    attack("A11 cross-agent forgery", "CAUGHT" if (ok and not bad) else "LANDED",
+           f"honest sig verifies={ok}, liar-forged-as-honest verifies={bad}")
 
     # --- A9 (H5): durability — audit survives a bus restart ----------------
     print("\n[H5] durable receipts")
@@ -219,9 +255,11 @@ def main():
     landed = sum(1 for _, s, _ in RESULTS if s == "LANDED")
     print(f"VERDICT: {caught} CAUGHT / {landed} LANDED")
     print("LANDED items are not accidents — they are the documented gap")
-    print("between tamper-evidence and honesty. Next deployment phase:")
-    print("  - shepherd-held verification key (H1), durable bus ledger (H5)")
-    print("  - signed claim ledger (H3), persist-before-publish (H7)")
+    print("between tamper-evidence and honesty:")
+    print("  - A4: a lying-but-consistent scout audits clean (consistency != truth)")
+    print("  - A6: a stolen DERIVED key still forges its OWN agent (blast radius")
+    print("        limited to one lane; unit secret custody is the control)")
+    print("  - A8: demo key copy-paste is an operator hygiene habit")
     import shutil
     shutil.rmtree(tmp, ignore_errors=True)
     sys.exit(0)

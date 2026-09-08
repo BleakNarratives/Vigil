@@ -19,6 +19,8 @@ from sdk.spyglass_sdk import (
 from sdk.integrity import CommandGuard, IntegrityError, ensure_key
 from sdk.geometry import WhorlWeave, WeavePosition
 from sdk.fabrication import FabricationDetector, FabricationReport
+from sdk.keyring import AgentKeyring, derive_agent_key, module_dna_fingerprint
+from sdk.peerwatch import PeerWatch
 
 try:
     from SyntaxIntelligence.event_bus import SyntaxEventBus
@@ -449,6 +451,85 @@ class TestSpottingBoard(unittest.TestCase):
         self.assertTrue(board.bid(s))
         board.release("t")
         self.assertTrue(board.bid(s))  # claimable again
+
+
+class TestKeyring(unittest.TestCase):
+
+    def test_per_agent_keys_are_distinct(self):
+        keyring = AgentKeyring(b"unit-secret")
+        g1 = keyring.issue("scout-1")
+        g2 = keyring.issue("scout-2")
+        self.assertNotEqual(g1.key, g2.key)
+
+    def test_verify_guard_reproduces_issued_key(self):
+        keyring = AgentKeyring(b"unit-secret")
+        s = Spotting(id=phm_id(), ts="1", source="scout-1", kind="k", target="t")
+        keyring.issue("scout-1").sign(s)
+        self.assertTrue(keyring.verify_signature("scout-1", s))
+        self.assertFalse(keyring.verify_signature("scout-2", s))  # other DNA
+
+    def test_cross_agent_forgery_fails(self):
+        keyring = AgentKeyring(b"unit-secret")
+        forged = Spotting(id=phm_id(), ts="1", source="scout-1", kind="k",
+                          target="/tmp/forged")
+        keyring.issue("scout-2").sign(forged)  # liar signs AS honest
+        self.assertFalse(keyring.verify_signature("scout-1", forged))
+
+    def test_dna_binding_changes_the_key(self):
+        keyring = AgentKeyring(b"unit-secret")
+        k1 = derive_agent_key(b"unit-secret", "scout-1", dna="AAA")
+        k2 = derive_agent_key(b"unit-secret", "scout-1", dna="AAB")
+        self.assertNotEqual(k1, k2)
+        self.assertEqual(module_dna_fingerprint("def a():\n" * 4),
+                         module_dna_fingerprint("def a():\n" * 4))
+        self.assertNotEqual(module_dna_fingerprint("x"),
+                            module_dna_fingerprint("y"))
+
+    def test_derive_is_deterministic(self):
+        self.assertEqual(derive_agent_key(b"u", "a"), derive_agent_key(b"u", "a"))
+        self.assertNotEqual(derive_agent_key(b"u", "a"), derive_agent_key(b"v", "a"))
+
+
+class TestPeerWatch(unittest.TestCase):
+
+    def test_flags_discount_vouches_amplify(self):
+        watch = PeerWatch()
+        watch.flag("a", "liar", "phm_1", "fantasy")
+        watch.flag("b", "liar", "phm_1", "fantasy")
+        watch.vouch("c", "liar", "phm_1", "actually solid")
+        weight = watch.weight("liar")
+        self.assertEqual(weight, (1 + 1) / (2 + 1))  # 0.667
+        self.assertLess(weight, 1.0)
+
+    def test_weight_clamped(self):
+        watch = PeerWatch()
+        for i in range(50):
+            watch.flag(f"peer-{i}", "liar", "phm_1", "x")
+        self.assertGreaterEqual(watch.weight("liar"), 0.25)
+
+    def test_history_and_persistence(self):
+        import tempfile
+        tmp = tempfile.mkdtemp()
+        path = os.path.join(tmp, "peerwatch.jsonl")
+        watch = PeerWatch(path=path)
+        watch.flag("a", "liar", "phm_1", "fantasy")
+        watch2 = PeerWatch(path=path)  # reload from disk
+        self.assertEqual(len(watch2.history("liar")), 1)
+        self.assertEqual(watch2.history("nobody"), [])
+
+    def test_board_applies_peer_weight(self):
+        watch = PeerWatch()
+        watch.flag("a", "liar", "phm_1", "fantasy")
+        watch.flag("b", "liar", "phm_1", "fantasy")
+        board = SpottingBoard(peer_watch=watch)
+        s_liar = Spotting(id=phm_id(), ts="1", source="liar", kind="k",
+                          target="/tmp/t", confidence=1.0, strength=1.0)
+        s_honest = Spotting(id=phm_id(), ts="1", source="honest", kind="k",
+                            target="/tmp/t", confidence=0.5, strength=1.0)
+        r_l = board.bid(s_liar, latent={"mission_priority": 1.0})
+        r_h = board.bid(s_honest, latent={"mission_priority": 1.0})
+        self.assertLess(r_l.priority, r_h.priority)  # flags beat the braggart
+        self.assertIn("peer_weight", r_l.geometry)
 
 
 class TestBoundaryClamp(unittest.TestCase):

@@ -10,6 +10,8 @@ The core substrate for swarm scouting agents to `spot`, `bid`, `claim`, and `rep
 | **Geometry** | `sdk/geometry.py` | `WhorlWeave` gives every scout a position in the weave (ring/phase/helix). `bid()` computes confidence + strength from that geometry via **quadratic dispersion** (`urgency / (1 + k·d²)`) plus **latent state** (health, resource cost, mission priority) — not arrival speed. |
 | **Fabrication** | `sdk/fabrication.py` | `FabricationDetector` cross-checks a scout's own pheromone log against the `SyntaxEventBus` log: matched receipts, unmatched (forged) receipts, ghost bus events, signature failures, field mismatches, replays, unsigned claims. `Scout.audit_self()` runs it. |
 | **Receipts** | `sdk/receipts.py` | Durable `spotting_id -> bus_msg_id` correlation ledger — audits survive bus restarts, and the sink can persist-before-publish (subscribers never act on unrecorded spottings). |
+| **Keyring** | `sdk/keyring.py` | RoboCop key custody (H1): per-agent signing keys derived from a unit secret + agent identity — the gun only fires for its owner; the shepherd holds the charge. |
+| **PeerWatch** | `sdk/peerwatch.py` | Peer accountability (H4): scouts flag/vouch each other's declared values; reputation discounts flagged liars' bids — quietly recorded, shepherd-visible. |
 
 Every capability is a separate module with a versioned public API, documented
 invariants, and extension points in **`sdk/module_registry.json`**. That
@@ -77,11 +79,13 @@ Runs one signed spotting, three weave-aware bids on a single shared board
 python3 sdk/redteam_drill.py
 ```
 Runs the H1-H9 attack battery and reports CAUGHT/LANDED per attack.
-Current verdict: **6 CAUGHT / 3 LANDED** (path spoof, unsigned claims,
-lying bids, replays, persist-first ordering, restart durability all caught).
-Remaining LANDED are documented fundamentals: lying-but-consistent scouts
-(the detector proves consistency, not truth), key compromise (needs the
-shepherd-held verifier — deployment phase), and demo key hygiene.
+Current verdict: **8 CAUGHT / 3 LANDED** (path spoof, unsigned claims,
+lying bids + value clamps, replays, persist-first ordering, restart
+durability, peer-flagged liars losing bids, cross-agent key forgery all
+caught). Remaining LANDED are documented fundamentals: lying-but-consistent
+scouts (the detector proves consistency, not truth), a stolen DERIVED key
+still forging its own agent (blast radius limited to one lane; unit-secret
+custody is the deployment-phase control), and demo key hygiene.
 
 ## Tests
 ```bash
@@ -90,5 +94,7 @@ cd ~ && python3 -m unittest sdk.tests.test_sdk_upgrades sdk.tests.test_self_mod 
 Covers: sign/verify/tamper, quadratic dispersion, latent-state priority,
 geometric displacement, forged-receipt + ghost + signature-failure + replay
 + field-mismatch + unsigned-claim detection, persist-first ordering, receipt
-durability, self-mod gatekeeper, and backward compatibility (old
-`Scout(agent_id, sink)` / `if board.bid(s)` code keeps working).
+durability, per-agent key derivation + cross-agent forgery rejection, peer
+flag/vouch reputation weighting, self-mod gatekeeper, and backward
+compatibility (old `Scout(agent_id, sink)` / `if board.bid(s)` code keeps
+working).

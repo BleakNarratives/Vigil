@@ -75,6 +75,14 @@ except ImportError:
     except ImportError:
         ReceiptLedger = None
 
+try:
+    from sdk.peerwatch import PeerWatch
+except ImportError:
+    try:
+        from peerwatch import PeerWatch
+    except ImportError:
+        PeerWatch = None
+
 # Attempt optional ecosystem imports
 try:
     from pheromone_store import PheromoneStore
@@ -242,9 +250,11 @@ class SpottingBoard:
     are computed from the agent's weave position + latent state, and a
     higher-priority bid displaces an earlier claim.
     """
-    def __init__(self, weave: Optional[Any] = None):
+    def __init__(self, weave: Optional[Any] = None,
+                 peer_watch: Optional[Any] = None):
         self.claims: Dict[str, Dict[str, Any]] = {}
         self.weave = weave
+        self.peer_watch = peer_watch
 
     def bid(self, spotting: Spotting, latent: Optional[Dict[str, float]] = None,
             source_position: Optional[Any] = None) -> BidResult:
@@ -257,6 +267,13 @@ class SpottingBoard:
             confidence, strength = spotting.confidence, spotting.strength
             priority = confidence * strength
             geom = {}
+
+        # H4 peer accountability: a flagged scout's priority is discounted
+        # by peer standing (correct flags rat it down; vouches lift it).
+        if self.peer_watch is not None:
+            peer = self.peer_watch.weight(spotting.source)
+            priority *= peer
+            geom = {**geom, "peer_weight": peer}
 
         existing = self.claims.get(spotting.target)
         if existing is None:
@@ -303,11 +320,13 @@ class Swarm:
     """
     def __init__(self, sink: Optional[PheromoneSink] = None, weave: Optional[Any] = None,
                  guard: Optional[Any] = None, store: Optional[Any] = None,
-                 event_bus: Optional[Any] = None):
+                 event_bus: Optional[Any] = None,
+                 peer_watch: Optional[Any] = None):
         self.sink = sink if sink is not None else PheromoneSink(
             store=store, event_bus=event_bus, guard=guard)
         self.weave = weave
-        self.board = SpottingBoard(weave=weave)
+        self.peer_watch = peer_watch
+        self.board = SpottingBoard(weave=weave, peer_watch=peer_watch)
         self.scouts: Dict[str, Scout] = {}
 
     def add_scout(self, agent_id: str,

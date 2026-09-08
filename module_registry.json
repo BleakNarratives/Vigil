@@ -71,6 +71,48 @@
       ]
     },
     {
+      "name": "keyring",
+      "path": "keyring.py",
+      "role": "RoboCop key custody (H1): per-agent signing keys derived from a unit secret + agent identity (DNA); shepherd holds the charge",
+      "version": "1",
+      "patchable": true,
+      "approval": "none",
+      "patch_policy": "scout-patchable. Keep derive semantics + verify_guard symmetry; test gate must stay green; ledger entry with author+reason required. The unit secret NEVER lives in agent scope.",
+      "public_api": ["AgentKeyring(unit_secret)", "AgentKeyring.issue(agent_id, dna)", "AgentKeyring.verify_guard(agent_id, dna)", "AgentKeyring.verify_signature(agent_id, spotting)", "derive_agent_key(unit_secret, agent_id, dna)", "module_dna_fingerprint(module_text)"],
+      "extension_points": [
+        "derive_agent_key() — change derivation (HKDF, per-agent salt) without breaking issue/verify symmetry",
+        "module_dna_fingerprint() — bind to a different identity artifact (DNA_TAG block vs whole source)",
+        "issue()/verify_guard() — feed the unit secret from the concierge vault instead of a literal"
+      ],
+      "invariants": [
+        "issue(agent_id) and verify_guard(agent_id) MUST derive the same key for the same inputs",
+        "agent A's key NEVER equals agent B's key (distinct lanes)",
+        "the unit secret is never embedded in a CommandGuard or any scout-held object",
+        "DNA binding is optional and additive — same inputs, same key, deterministically"
+      ]
+    },
+    {
+      "name": "peerwatch",
+      "path": "peerwatch.py",
+      "role": "peer accountability (H4): scouts flag/vouch each other's declared values; reputation weights bid priority — quietly recorded, shepherd-visible",
+      "version": "1",
+      "patchable": true,
+      "approval": "none",
+      "patch_policy": "scout-patchable. Keep flag/vouch append-only semantics + weight math bounds; test gate must stay green; ledger entry with author+reason required.",
+      "public_api": ["PeerWatch(path, guard)", "PeerWatch.flag(flagger, target_agent, spotting_id, reason)", "PeerWatch.vouch(voucher, target_agent, spotting_id, note)", "PeerWatch.weight(agent_id)", "PeerWatch.history(agent_id)"],
+      "extension_points": [
+        "weight() — different reputation law (decay, flag-source weighting) while staying within WEIGHT_MIN/WEIGHT_MAX",
+        "history() — feed the shepherd's audit UI",
+        "flag()/vouch() — emit the records as signed pheromones too (swarm-visible ledger)"
+      ],
+      "invariants": [
+        "records are append-only and signed by the actor when a guard is configured",
+        "weight stays in [WEIGHT_MIN, WEIGHT_MAX] = [0.25, 1.25]",
+        "weight() never throws on an empty history (returns 1.0)",
+        "SpottingBoard.bid() applies peer_weight without mutating the spotting"
+      ]
+    },
+    {
       "name": "receipts",
       "path": "receipts.py",
       "role": "durable spotting_id -> bus_msg_id correlation receipts (survives bus restart; enables persist-before-publish)",
