@@ -16,6 +16,24 @@ registry is the self-modification contract: agents may patch module internals
 as long as the public API + invariants hold (see the guidance block in the
 registry).
 
+## Self-modification (scouts patching their own code)
+
+Full protocol: **`sdk/SELF_MODIFICATION.md`**. The tool: **`sdk/self_mod.py`**.
+
+```bash
+python3 sdk/self_mod.py status          # what's patchable, versions, mutations
+python3 sdk/self_mod.py plan geometry   # the registry entry: API, invariants, seams
+python3 sdk/self_mod.py validate geometry /tmp/geometry_v2.py   # no writes
+python3 sdk/self_mod.py apply geometry /tmp/geometry_v2.py \
+    --author scout-1 --reason "override dispersion law"          # gate + rollback
+python3 sdk/self_mod.py verify          # mutation ledger chain intact?
+```
+
+Trust boundary: `integrity.py` is `patchable: false` — scouts cannot patch the
+verifier. Every apply is backed up (`backups/`), gated on the full test suite
+(automatic rollback on red), version-bumped in the registry, and recorded in a
+hash-chained ledger (`MUTATION_LEDGER.jsonl`, local evidence, gitignored).
+
 ## Features
 - **Canonical Primitive**: `Spotting` dataclass (protobuf-ready) with `signature` + `bus_msg_id` correlation fields.
 - **Substrate-Agnostic**: Writes to pheromone logs or pushes to event buses.
