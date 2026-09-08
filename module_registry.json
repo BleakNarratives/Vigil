@@ -1,0 +1,83 @@
+{
+  "registry_version": 1,
+  "updated": "2026-09-08",
+  "purpose": "Self-modification contract. Scouts may patch module internals as long as the public API surface and invariants hold. After a patch, bump the module's version and append a SESSION line to its DNA_TAG. Read this file first — it is the map of what may be touched and what must never break.",
+  "self_modification_guidance": [
+    "Never change a public API signature without updating every caller in this SDK and the README examples.",
+    "Invariants are non-negotiable: breaking one voids the integrity/fabrication guarantees, not just the tests.",
+    "Additive changes (new methods, new fields with defaults) are always safe.",
+    "Run `python3 -m unittest sdk.tests.test_sdk_upgrades` after any patch.",
+    "Signature metadata (signature, bus_msg_id) must never be included in the canonical hash — see integrity._SIGNATURE_FIELDS."
+  ],
+  "modules": [
+    {
+      "name": "integrity",
+      "path": "sdk/integrity.py",
+      "role": "proof-of-work: hash the command path and sign it with a local key BEFORE pheromone emission",
+      "version": "1",
+      "public_api": ["CommandGuard(key_path|key)", "CommandGuard.sign(spotting)", "CommandGuard.verify(spotting)", "CommandGuard.verify_log(records)", "CommandGuard.hash_command(spotting)", "ensure_key(path)", "IntegrityError", "DEFAULT_KEY_PATH"],
+      "extension_points": [
+        "CommandGuard.canonical() — change what the signature covers",
+        "CommandGuard.sign()/verify() — swap HMAC-SHA256 for asymmetric signing (ed25519) without changing call sites",
+        "ensure_key() — different key distribution (vault, TPM) while keeping the 0600 local-key default"
+      ],
+      "invariants": [
+        "signature is attached before the pheromone is emitted (sink.report() step 1)",
+        "verify() recomputes the MAC from scratch and uses compare_digest — never trusts the stored signature",
+        "signature and bus_msg_id are excluded from the canonical hash",
+        "SPOTTING_EMBED_KEY (_spotting) is a reserved payload key — never use it for user data; the sink embeds the exact signed fields there so store records verify",
+        "double-signing raises IntegrityError"
+      ]
+    },
+    {
+      "name": "geometry",
+      "path": "sdk/geometry.py",
+      "role": "Whorl-weave substrate: geometric positions, quadratic dispersion, latent-state bid priority",
+      "version": "1",
+      "public_api": ["WhorlWeave(agent_ids, rings, helix_step, dispersion_k)", "WhorlWeave.register(agent_id, ring)", "WhorlWeave.position(agent_id)", "WhorlWeave.dispersion(urgency, distance)", "WhorlWeave.modulate(spotting, source_position, latent)", "WeavePosition"],
+      "extension_points": [
+        "dispersion() — swap the quadratic law for exponential or inverse-linear dispersion",
+        "position()/coords() — drive positions from live agent telemetry instead of assigned slots",
+        "modulate() — fold in new latent dimensions (energy budget, trust score) without touching the board"
+      ],
+      "invariants": [
+        "dispersion(urgency, 0) == urgency (source position feels full urgency)",
+        "confidence/strength stay in [0, 1]; priority stays in [0, 1]",
+        "bid priority must never increase with distance from the signal source"
+      ]
+    },
+    {
+      "name": "fabrication",
+      "path": "sdk/fabrication.py",
+      "role": "fabrication detection: cross-check the scout's pheromone log against the SyntaxEventBus log",
+      "version": "1",
+      "public_api": ["FabricationDetector(store, bus, guard, agent_id, channel)", "FabricationDetector.audit(agent_id)", "FabricationDetector.match(pheromone, publish)", "FabricationReport"],
+      "extension_points": [
+        "match() — correlate on a different key than bus_msg_id (e.g. payload hash)",
+        "audit() — add store-side integrity checks (hash-chained log) alongside bus correlation"
+      ],
+      "invariants": [
+        "the bus msg_id is assigned by the bus under lock — a receipt cannot be invented without a matching publish",
+        "report.consistent is False iff unmatched, ghost, or signature failures exist",
+        "audit() never mutates the store or the bus"
+      ]
+    },
+    {
+      "name": "spyglass_sdk",
+      "path": "sdk/spyglass_sdk.py",
+      "role": "canonical surface: Spotting, PheromoneSink, Scout, SpottingBoard — wires the three capability modules",
+      "version": "1",
+      "public_api": ["Spotting", "PheromoneSink(store, event_bus, guard)", "PheromoneSink.report(spotting)", "Scout(agent_id, sink, weave, latent, board)", "Scout.spot()", "Scout.bid()", "Scout.audit_self()", "SpottingBoard(weave)", "SpottingBoard.bid(spotting, latent, source_position)", "BidResult", "phm_id"],
+      "extension_points": [
+        "PheromoneSink.report() — change the emit order/persistence layer (MCP transport, Redis) while keeping sign -> publish -> persist",
+        "SpottingBoard.bid() — new conflict-resolution policy on top of the geometric priority"
+      ],
+      "invariants": [
+        "sink.report() signs before it publishes or persists",
+        "store record payload always embeds signature + bus_msg_id when guard/bus are present",
+        "Spotting.to_dict() is backward compatible: old fields unchanged, new fields additive",
+        "BidResult is truthy iff accepted (old `if board.bid(s)` callers keep working)"
+      ]
+    }
+  ]
+}

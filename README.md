@@ -2,16 +2,60 @@
 
 The core substrate for swarm scouting agents to `spot`, `bid`, `claim`, and `report`.
 
+## Capabilities (2026-09-08 — three layers, not a skeleton)
+
+| Layer | Module | What it does |
+|-------|--------|--------------|
+| **Integrity** | `sdk/integrity.py` | `CommandGuard` hashes the command path and signs every pheromone with a local HMAC key **before emission** (proof-of-work). Tampered or forged log records fail verification. |
+| **Geometry** | `sdk/geometry.py` | `WhorlWeave` gives every scout a position in the weave (ring/phase/helix). `bid()` computes confidence + strength from that geometry via **quadratic dispersion** (`urgency / (1 + k·d²)`) plus **latent state** (health, resource cost, mission priority) — not arrival speed. |
+| **Fabrication** | `sdk/fabrication.py` | `FabricationDetector` cross-checks a scout's own pheromone log against the `SyntaxEventBus` log: matched receipts, unmatched (forged) receipts, ghost bus events, signature failures. `Scout.audit_self()` runs it. |
+
+Every capability is a separate module with a versioned public API, documented
+invariants, and extension points in **`sdk/module_registry.json`**. That
+registry is the self-modification contract: agents may patch module internals
+as long as the public API + invariants hold (see the guidance block in the
+registry).
+
 ## Features
-- **Canonical Primitive**: `Spotting` dataclass (protobuf-ready).
+- **Canonical Primitive**: `Spotting` dataclass (protobuf-ready) with `signature` + `bus_msg_id` correlation fields.
 - **Substrate-Agnostic**: Writes to pheromone logs or pushes to event buses.
-- **FCFS Bidding**: Basic conflict resolution via `SpottingBoard`.
-- **Integrity**: Placeholder hooks for WaveLang-style command validation via `CommandGuard`.
+- **Geometric Bidding**: `SpottingBoard` resolves conflicts by geometric priority (position + latent state); FCFS is the tie-break only.
+- **Proof-of-Work Integrity**: `CommandGuard.sign()` before emit, `CommandGuard.verify()` after — local key at `~/.spyglass/scout_key` (0600) unless one is passed explicitly.
+- **Self-Audit**: `Scout.audit_self()` returns a `FabricationReport` (truthy iff consistent).
 
 ## Usage
 ```python
-from sdk.spyglass_sdk import Spotting, Scout, PheromoneSink
-sink = PheromoneSink()
-scout = Scout("my-agent", sink)
-scout.spot("scout_event", "target_path", {"info": "found something"})
+from sdk.spyglass_sdk import Scout, PheromoneSink
+from sdk.integrity import CommandGuard
+from sdk.geometry import WhorlWeave
+from sdk.fabrication import FabricationDetector
+
+# Local-key integrity + weave geometry + event bus
+guard = CommandGuard()                      # or CommandGuard(key=b"...")
+weave = WhorlWeave(["scout-1", "scout-2"], rings={"scout-2": 2})
+sink = PheromoneSink(event_bus=bus, guard=guard)
+scout = Scout("scout-1", sink, weave=weave, latent={"mission_priority": 0.9})
+
+s = scout.spot("scout_event", "target_path", {"info": "found something"})
+assert guard.verify(s)                      # signed before emission
+
+accepted = scout.bid(s)                     # geometric priority, not FCFS
+report = scout.audit_self()                 # fabrication cross-check
+assert report.consistent
 ```
+
+## Demo
+```bash
+python3 sdk/spyglass_sdk.py demo
+```
+Runs one signed spotting, three weave-aware bids (displacement included),
+integrity verification, and a fabrication self-audit.
+
+## Tests
+```bash
+cd ~ && python3 -m unittest sdk.tests.test_sdk_upgrades -v
+```
+Covers: sign/verify/tamper, quadratic dispersion, latent-state priority,
+geometric displacement, forged-receipt + ghost + signature-failure detection,
+and backward compatibility (old `Scout(agent_id, sink)` / `if board.bid(s)`
+code keeps working).
