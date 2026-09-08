@@ -129,7 +129,7 @@ class Theoros:
                  guard: Optional[Any] = None, receipts: Any = None,
                  peer_watch: Any = None, voice: Any = None,
                  sniffer: Any = None, keyring: Any = None,
-                 repugnant: Any = None):
+                 repugnant: Any = None, extra_stores: Any = None):
         self.store = store
         self.bus = bus
         self.guard = guard
@@ -139,6 +139,7 @@ class Theoros:
         self.sniffer = sniffer if sniffer is not None else (Oler() if Oler else None)
         self.keyring = keyring  # unused today; the charge's custody record
         self.repugnant = repugnant  # the 4th register: emotional state
+        self.extra_stores = extra_stores  # other stores on the shared bus
 
     def observe(self, agent_id: Optional[str] = None) -> TheorosReading:
         """One pass over every ledger. Read-only — this function mutates
@@ -150,7 +151,8 @@ class Theoros:
                 and self.bus is not None:
             reading.fabrication = FabricationDetector(
                 store=self.store, bus=self.bus, guard=self.guard,
-                receipts=self.receipts).audit(agent_id)
+                receipts=self.receipts,
+                extra_stores=self.extra_stores).audit(agent_id)
             for issue in reading.fabrication.issues:
                 reading.issues.append(issue)
 

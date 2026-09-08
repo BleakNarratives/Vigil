@@ -107,7 +107,13 @@ class FabricationDetector:
                  agent_id: Optional[str] = None,
                  channel: str = DEFAULT_CHANNEL,
                  receipts: Optional[Any] = None,
-                 claim_types: frozenset = frozenset({"TASK_CLAIM"})):
+                 claim_types: frozenset = frozenset({"TASK_CLAIM"}),
+                 extra_stores: Optional[List[Any]] = None):
+        """extra_stores: other stores sharing this bus (e.g. the opposing
+        team in an arena). A bus publish is only a GHOST if NO known store
+        claims it — cross-checking the other side's store prevents the
+        shared-bus false positive where every enemy signal looks forged.
+        """
         self.store = store
         self.bus = bus
         self.guard = guard
@@ -115,6 +121,7 @@ class FabricationDetector:
         self.channel = channel
         self.receipts = receipts
         self.claim_types = claim_types
+        self.extra_stores = list(extra_stores or [])
 
     # -- matching seam ---------------------------------------------------------
 
@@ -159,7 +166,25 @@ class FabricationDetector:
         report.pheromone_count = len(pheromones)
         report.bus_publish_count = len(publishes)
 
+        # ghost reference set: every bus correlation claimed by ANY known
+        # store (own + extra). A publish is ghost only if nothing claims it.
+        # Extra stores contribute ALL their claims — on a shared arena bus
+        # the opposing team's signals are real even when auditing one side,
+        # and per-agent filtering below belongs to the detailed checks, not
+        # to ghost resolution.
         referenced: set = set()
+        for src_store in [self.store] + self.extra_stores:
+            for ph in src_store.read_all():
+                payload = ph.get("payload") or {}
+                correlation = payload.get("correlation")
+                if self.receipts is not None and correlation:
+                    rid = self.receipts.lookup(correlation)
+                    if rid is not None:
+                        referenced.add(rid)
+                claimed = payload.get("bus_msg_id")
+                if claimed is not None:
+                    referenced.add(claimed)
+
         seen_ids: set = set()
 
         for ph in pheromones:

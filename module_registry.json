@@ -1,14 +1,14 @@
 {
   "registry_version": 1,
   "updated": "2026-09-08",
-  "purpose": "Self-modification contract. Scouts may patch modules marked patchable:true as long as the public API surface and invariants hold; modules marked patchable:false are TRUST boundaries and out of scope for scouts. After a patch, the tool bumps the module's version and appends a hash-chained ledger entry. Read this file first — it is the map of what may be touched and what must never break. Full procedure: SELF_MODIFICATION.md.",
+  "purpose": "Self-modification contract. Scouts may patch modules marked patchable:true as long as the public API surface and invariants hold; modules marked patchable:false are TRUST boundaries and out of scope for scouts. After a patch, the tool bumps the module's version and appends a hash-chained ledger entry. Read this file first \u2014 it is the map of what may be touched and what must never break. Full procedure: SELF_MODIFICATION.md.",
   "self_modification_guidance": [
     "Never change a public API signature without updating every caller in this SDK and the README examples.",
     "Invariants are non-negotiable: breaking one voids the integrity/fabrication guarantees, not just the tests.",
     "Additive changes (new methods, new fields with defaults) are always safe.",
-    "Run the test gate (default: `python3 -m unittest vigil.tests.test_sdk_upgrades`) — `python3 vigil/self_mod.py apply` does this automatically and rolls back on red.",
-    "Signature metadata (signature, bus_msg_id) must never be included in the canonical hash — see integrity._SIGNATURE_FIELDS.",
-    "SPOTTING_EMBED_KEY (_spotting) is reserved — never use it for user data.",
+    "Run the test gate (default: `python3 -m unittest vigil.tests.test_sdk_upgrades`) \u2014 `python3 vigil/self_mod.py apply` does this automatically and rolls back on red.",
+    "Signature metadata (signature, bus_msg_id) must never be included in the canonical hash \u2014 see integrity._SIGNATURE_FIELDS.",
+    "SPOTTING_EMBED_KEY (_spotting) is reserved \u2014 never use it for user data.",
     "Trust modules (patchable:false) are enforced by filesystem ownership, not by this file."
   ],
   "modules": [
@@ -19,14 +19,24 @@
       "version": "1",
       "patchable": false,
       "approval": "never",
-      "patch_policy": "TRUST MODULE — scouts cannot patch. Shepherd/operator only, outside self_mod. If the signing layer is compromised, the entire integrity story is theater.",
-      "public_api": ["CommandGuard(key_path|key)", "CommandGuard.sign(spotting)", "CommandGuard.verify(spotting)", "CommandGuard.verify_log(records)", "CommandGuard.hash_command(spotting)", "ensure_key(path)", "IntegrityError", "DEFAULT_KEY_PATH", "SPOTTING_EMBED_KEY"],
+      "patch_policy": "TRUST MODULE \u2014 scouts cannot patch. Shepherd/operator only, outside self_mod. If the signing layer is compromised, the entire integrity story is theater.",
+      "public_api": [
+        "CommandGuard(key_path|key)",
+        "CommandGuard.sign(spotting)",
+        "CommandGuard.verify(spotting)",
+        "CommandGuard.verify_log(records)",
+        "CommandGuard.hash_command(spotting)",
+        "ensure_key(path)",
+        "IntegrityError",
+        "DEFAULT_KEY_PATH",
+        "SPOTTING_EMBED_KEY"
+      ],
       "extension_points": [],
       "invariants": [
         "signature is attached before the pheromone is emitted (sink.report() step 1)",
-        "verify() recomputes the MAC from scratch and uses compare_digest — never trusts the stored signature",
+        "verify() recomputes the MAC from scratch and uses compare_digest \u2014 never trusts the stored signature",
         "signature and bus_msg_id are excluded from the canonical hash",
-        "SPOTTING_EMBED_KEY (_spotting) is a reserved payload key — never use it for user data; the sink embeds the exact signed fields there so store records verify",
+        "SPOTTING_EMBED_KEY (_spotting) is a reserved payload key \u2014 never use it for user data; the sink embeds the exact signed fields there so store records verify",
         "double-signing raises IntegrityError"
       ]
     },
@@ -38,11 +48,18 @@
       "patchable": true,
       "approval": "none",
       "patch_policy": "scout-patchable. Keep public API + invariants; test gate must stay green; ledger entry with author+reason required. Dispersion law and latent folding are the intended extension seams.",
-      "public_api": ["WhorlWeave(agent_ids, rings, helix_step, dispersion_k)", "WhorlWeave.register(agent_id, ring)", "WhorlWeave.position(agent_id)", "WhorlWeave.dispersion(urgency, distance)", "WhorlWeave.modulate(spotting, source_position, latent)", "WeavePosition"],
+      "public_api": [
+        "WhorlWeave(agent_ids, rings, helix_step, dispersion_k)",
+        "WhorlWeave.register(agent_id, ring)",
+        "WhorlWeave.position(agent_id)",
+        "WhorlWeave.dispersion(urgency, distance)",
+        "WhorlWeave.modulate(spotting, source_position, latent)",
+        "WeavePosition"
+      ],
       "extension_points": [
-        "dispersion() — swap the quadratic law for exponential or inverse-linear dispersion",
-        "position()/coords() — drive positions from live agent telemetry instead of assigned slots",
-        "modulate() — fold in new latent dimensions (energy budget, trust score) without touching the board"
+        "dispersion() \u2014 swap the quadratic law for exponential or inverse-linear dispersion",
+        "position()/coords() \u2014 drive positions from live agent telemetry instead of assigned slots",
+        "modulate() \u2014 fold in new latent dimensions (energy budget, trust score) without touching the board"
       ],
       "invariants": [
         "dispersion(urgency, 0) == urgency (source position feels full urgency)",
@@ -58,13 +75,18 @@
       "patchable": true,
       "approval": "none",
       "patch_policy": "scout-patchable. Keep public API + invariants; test gate must stay green; ledger entry with author+reason required. match() is the intended extension seam.",
-      "public_api": ["FabricationDetector(store, bus, guard, agent_id, channel)", "FabricationDetector.audit(agent_id)", "FabricationDetector.match(pheromone, publish)", "FabricationReport"],
+      "public_api": [
+        "FabricationDetector(store, bus, guard, agent_id, channel)",
+        "FabricationDetector.audit(agent_id)",
+        "FabricationDetector.match(pheromone, publish)",
+        "FabricationReport"
+      ],
       "extension_points": [
-        "match() — correlate on a different key than bus_msg_id (e.g. payload hash)",
-        "audit() — add store-side integrity checks (hash-chained log) alongside bus correlation"
+        "match() \u2014 correlate on a different key than bus_msg_id (e.g. payload hash)",
+        "audit() \u2014 add store-side integrity checks (hash-chained log) alongside bus correlation"
       ],
       "invariants": [
-        "the bus msg_id is assigned by the bus under lock — a receipt cannot be invented without a matching publish",
+        "the bus msg_id is assigned by the bus under lock \u2014 a receipt cannot be invented without a matching publish",
         "a durable receipt is authoritative correlation (H5); the legacy bus_msg_id embed is fallback-only",
         "report.consistent is False iff unmatched, ghost, signature failures, field mismatches, replays, or unsigned claims exist",
         "audit() never mutates the store, the bus, or the receipts ledger"
@@ -78,38 +100,58 @@
       "patchable": true,
       "approval": "none",
       "patch_policy": "scout-patchable. Keep derive semantics + verify_guard symmetry; test gate must stay green; ledger entry with author+reason required. The unit secret NEVER lives in agent scope.",
-      "public_api": ["AgentKeyring(unit_secret)", "AgentKeyring.issue(agent_id, dna)", "AgentKeyring.verify_guard(agent_id, dna)", "AgentKeyring.verify_signature(agent_id, spotting)", "AgentKeyring.from_vault(vault_path)", "derive_agent_key(unit_secret, agent_id, dna)", "module_dna_fingerprint(module_text)", "load_unit_secret(vault_path, slot)", "DEFAULT_VAULT_PATH", "VAULT_SLOT"],
+      "public_api": [
+        "AgentKeyring(unit_secret)",
+        "AgentKeyring.issue(agent_id, dna)",
+        "AgentKeyring.verify_guard(agent_id, dna)",
+        "AgentKeyring.verify_signature(agent_id, spotting)",
+        "AgentKeyring.from_vault(vault_path)",
+        "derive_agent_key(unit_secret, agent_id, dna)",
+        "module_dna_fingerprint(module_text)",
+        "load_unit_secret(vault_path, slot)",
+        "DEFAULT_VAULT_PATH",
+        "VAULT_SLOT"
+      ],
       "extension_points": [
-        "derive_agent_key() — change derivation (HKDF, per-agent salt) without breaking issue/verify symmetry",
-        "module_dna_fingerprint() — bind to a different identity artifact (DNA_TAG block vs whole source)",
-        "issue()/verify_guard() — feed the unit secret from the concierge vault (load_unit_secret / from_vault)"
+        "derive_agent_key() \u2014 change derivation (HKDF, per-agent salt) without breaking issue/verify symmetry",
+        "module_dna_fingerprint() \u2014 bind to a different identity artifact (DNA_TAG block vs whole source)",
+        "issue()/verify_guard() \u2014 feed the unit secret from the concierge vault (load_unit_secret / from_vault)"
       ],
       "invariants": [
         "issue(agent_id) and verify_guard(agent_id) MUST derive the same key for the same inputs",
         "agent A's key NEVER equals agent B's key (distinct lanes)",
         "the unit secret is never embedded in a CommandGuard or any scout-held object",
-        "DNA binding is optional and additive — same inputs, same key, deterministically"
+        "DNA binding is optional and additive \u2014 same inputs, same key, deterministically"
       ]
     },
     {
       "name": "peerwatch",
       "path": "peerwatch.py",
-      "role": "peer accountability (H4): scouts flag/vouch each other's declared values; reputation weights bid priority — quietly recorded, shepherd-visible",
+      "role": "peer accountability (H4): scouts flag/vouch each other's declared values; reputation weights bid priority \u2014 quietly recorded, shepherd-visible",
       "version": "1",
       "patchable": true,
       "approval": "none",
       "patch_policy": "scout-patchable. Keep flag/vouch append-only semantics + weight math bounds; test gate must stay green; ledger entry with author+reason required.",
-      "public_api": ["PeerWatch(path, guard)", "PeerWatch.flag(flagger, target_agent, spotting_id, reason)", "PeerWatch.vouch(voucher, target_agent, spotting_id, note)", "PeerWatch.confirm_flag(shepherd, target_agent, spotting_id, note)", "PeerWatch.weight(agent_id)", "PeerWatch.history(agent_id)", "PeerWatch.confirmed_flags(agent_id)", "CONFIRM_REWARD"],
+      "public_api": [
+        "PeerWatch(path, guard)",
+        "PeerWatch.flag(flagger, target_agent, spotting_id, reason)",
+        "PeerWatch.vouch(voucher, target_agent, spotting_id, note)",
+        "PeerWatch.confirm_flag(shepherd, target_agent, spotting_id, note)",
+        "PeerWatch.weight(agent_id)",
+        "PeerWatch.history(agent_id)",
+        "PeerWatch.confirmed_flags(agent_id)",
+        "CONFIRM_REWARD"
+      ],
       "extension_points": [
-        "weight() — different reputation law (decay, flag-source weighting) while staying within WEIGHT_MIN/WEIGHT_MAX",
-        "confirm_flag() — tie confirmation to a ledger-walked verdict (e.g. the flagged agent later fails a fabrication audit) instead of a manual shepherd call",
-        "history() — feed the shepherd's audit UI",
-        "flag()/vouch() — emit the records as signed pheromones too (swarm-visible ledger)"
+        "weight() \u2014 different reputation law (decay, flag-source weighting) while staying within WEIGHT_MIN/WEIGHT_MAX",
+        "confirm_flag() \u2014 tie confirmation to a ledger-walked verdict (e.g. the flagged agent later fails a fabrication audit) instead of a manual shepherd call",
+        "history() \u2014 feed the shepherd's audit UI",
+        "flag()/vouch() \u2014 emit the records as signed pheromones too (swarm-visible ledger)"
       ],
       "invariants": [
         "records are append-only and signed by the actor when a guard is configured",
         "weight stays in [WEIGHT_MIN, WEIGHT_MAX] = [0.25, 2.0]",
-        "flags/vouches are weighted by the ACTOR's own reputation (recursive, depth-capped at 3) — colluding dirtbags cannot launder standing",
+        "flags/vouches are weighted by the ACTOR's own reputation (recursive, depth-capped at 3) \u2014 colluding dirtbags cannot launder standing",
         "weight() never throws on an empty history (returns 1.0)",
         "SpottingBoard.bid() applies peer_weight without mutating the spotting"
       ]
@@ -117,20 +159,24 @@
     {
       "name": "theoros",
       "path": "theoros.py",
-      "role": "THE OBSERVER (operator-named 2026-09-08): read-only monitoring layer — fabrication audit + voice sniff + reputation standings + votes + suggestions + receipt chain, one reading. Theory from watching.",
+      "role": "THE OBSERVER (operator-named 2026-09-08): read-only monitoring layer \u2014 fabrication audit + voice sniff + reputation standings + votes + suggestions + receipt chain, one reading. Theory from watching.",
       "version": "1",
       "patchable": true,
       "approval": "none",
-      "patch_policy": "scout-patchable. The READ-ONLY contract is the invariant — Theoros may observe and report, never mutate. Test gate must stay green; ledger entry with author+reason required.",
-      "public_api": ["Theoros(store, bus, guard, receipts, peer_watch, voice, sniffer, keyring)", "Theoros.observe(agent_id)", "TheorosReading"],
+      "patch_policy": "scout-patchable. The READ-ONLY contract is the invariant \u2014 Theoros may observe and report, never mutate. Test gate must stay green; ledger entry with author+reason required.",
+      "public_api": [
+        "Theoros(store, bus, guard, receipts, peer_watch, voice, sniffer, keyring)",
+        "Theoros.observe(agent_id)",
+        "TheorosReading"
+      ],
       "extension_points": [
-        "observe() — add ledger surfaces (mutation ledger, peerwatch confirmations) to the reading",
-        "render() — different report formats (json, dashboard feed)",
-        "sniffer — swap Oler for a TruthSleuth LLM backend at construction"
+        "observe() \u2014 add ledger surfaces (mutation ledger, peerwatch confirmations) to the reading",
+        "render() \u2014 different report formats (json, dashboard feed)",
+        "sniffer \u2014 swap Oler for a TruthSleuth LLM backend at construction"
       ],
       "invariants": [
         "observe() NEVER mutates store, bus, receipts, voice, or peer_watch",
-        "every claim in the reading traces to a signed ledger record — no confidence-derived assertions",
+        "every claim in the reading traces to a signed ledger record \u2014 no confidence-derived assertions",
         "reading.consistent is False if fabrication hits OR corrupt speakers exist",
         "double-observe returns identical state (idempotent observation)"
       ]
@@ -143,13 +189,18 @@
       "patchable": true,
       "approval": "none",
       "patch_policy": "scout-patchable. Keep record()/lookup() semantics; test gate must stay green; ledger entry with author+reason required. Swapping the backing store (sqlite/MCP) is the intended seam.",
-      "public_api": ["ReceiptLedger(path)", "ReceiptLedger.record(spotting_id, bus_msg_id)", "ReceiptLedger.lookup(spotting_id)", "ReceiptLedger.all_ids()"],
+      "public_api": [
+        "ReceiptLedger(path)",
+        "ReceiptLedger.record(spotting_id, bus_msg_id)",
+        "ReceiptLedger.lookup(spotting_id)",
+        "ReceiptLedger.all_ids()"
+      ],
       "extension_points": [
-        "record()/lookup() — swap the jsonl backing for sqlite or MCP transport",
-        "lookup() — add index caching if the ledger grows hot"
+        "record()/lookup() \u2014 swap the jsonl backing for sqlite or MCP transport",
+        "lookup() \u2014 add index caching if the ledger grows hot"
       ],
       "invariants": [
-        "record() is append-only — never rewrite a receipt",
+        "record() is append-only \u2014 never rewrite a receipt",
         "lookup() returns the MOST RECENT receipt for a spotting id",
         "memory-only mode (path=None) is honestly non-durable and must say so"
       ]
@@ -157,64 +208,96 @@
     {
       "name": "repugnant",
       "path": "repugnant.py",
-      "role": "THE 4TH REGISTER (operator-spec, emotional): signed, append-only emotional snapshots (CONFIDENT/FOCUSED/FRUSTRATED/TILTED/BURNT_OUT/EXCITED/ANXIOUS/FLOW_STATE) — watch the powerful, not the street. A tilted hero's bid pays a state discount through the real SpottingBoard; Theoros surfaces unsettled subjects as 'demand evidence, don't convict'. Grafted from the Code-City Repugnant bridge vocabulary.",
+      "role": "THE 4TH REGISTER (operator-spec, emotional): signed, append-only emotional snapshots (CONFIDENT/FOCUSED/FRUSTRATED/TILTED/BURNT_OUT/EXCITED/ANXIOUS/FLOW_STATE) \u2014 watch the powerful, not the street. A tilted hero's bid pays a state discount through the real SpottingBoard; Theoros surfaces unsettled subjects as 'demand evidence, don't convict'. Grafted from the Code-City Repugnant bridge vocabulary.",
       "version": "1",
       "patchable": true,
       "approval": "none",
-      "patch_policy": "scout-patchable. Keep observe()/state_discount()/unsettled() semantics and the never-accuses invariant; test gate must stay green; ledger entry with author+reason required. New emotional states must be added to STATE_DISCOUNT deliberately — each one is a market price.",
-      "public_api": ["Repugnant(path, guard)", "Repugnant.observe(subject, state, confidence, frustration, observed_by, note)", "Repugnant.history(subject)", "Repugnant.current_state(subject)", "Repugnant.state_discount(subject)", "Repugnant.unsettled(threshold)", "Repugnant.verify()", "EmotionalState", "STATE_DISCOUNT"],
+      "patch_policy": "scout-patchable. Keep observe()/state_discount()/unsettled() semantics and the never-accuses invariant; test gate must stay green; ledger entry with author+reason required. New emotional states must be added to STATE_DISCOUNT deliberately \u2014 each one is a market price.",
+      "public_api": [
+        "Repugnant(path, guard)",
+        "Repugnant.observe(subject, state, confidence, frustration, observed_by, note)",
+        "Repugnant.history(subject)",
+        "Repugnant.current_state(subject)",
+        "Repugnant.state_discount(subject)",
+        "Repugnant.unsettled(threshold)",
+        "Repugnant.verify()",
+        "EmotionalState",
+        "STATE_DISCOUNT"
+      ],
       "extension_points": [
-        "observe() — plug real telemetry (heartbeat lag, error rate, response time) into confidence/frustration instead of manual observation",
-        "STATE_DISCOUNT — reprice states as the paper accumulates data",
-        "verify() — fold into Theoros's reading as another signed surface"
+        "observe() \u2014 plug real telemetry (heartbeat lag, error rate, response time) into confidence/frustration instead of manual observation",
+        "STATE_DISCOUNT \u2014 reprice states as the paper accumulates data",
+        "verify() \u2014 fold into Theoros's reading as another signed surface"
       ],
       "invariants": [
-        "REPUGNANT RECORDS, IT DOES NOT ACCUSE — an unsettled reading is a signal to demand evidence, never a verdict of guilt",
-        "snapshots are signed (own canonical, own key) and append-only — tampering fails verify_record()",
+        "REPUGNANT RECORDS, IT DOES NOT ACCUSE \u2014 an unsettled reading is a signal to demand evidence, never a verdict of guilt",
+        "snapshots are signed (own canonical, own key) and append-only \u2014 tampering fails verify_record()",
         "state_discount() returns 1.0 for never-observed subjects (no penalty for silence)",
-        "the board applies emotional_weight AFTER peer_weight — the 4th register prices what the market can't see, never replaces it"
+        "the board applies emotional_weight AFTER peer_weight \u2014 the 4th register prices what the market can't see, never replaces it"
       ]
+    },
+    {
+      "name": "brown",
+      "path": "brown.py",
+      "role": "THE SHIT SHOVELER - S-Rank Brown Hat: surprise third faction that audits BOTH teams against the shared bus (solo ghosts -> unite or get humped; register residue never launders)",
+      "patch_policy": "read-only auditor; grades, never edits the ledgers it audits",
+      "mutates": false
     },
     {
       "name": "molt",
       "path": "molt.py",
-      "role": "MOLT (operator lore): arena-won mutation access. Battles won earn signed Molt tokens — the ONLY gate to self-modification. The arena is the only mint; tokens cannot be bought, inherited, or faked. Closes the DataCampus loop: battle -> win -> Molt -> mutate your own code -> come back enhanced, or graduate through the door.",
+      "role": "MOLT (operator lore): arena-won mutation access. Battles won earn signed Molt tokens \u2014 the ONLY gate to self-modification. The arena is the only mint; tokens cannot be bought, inherited, or faked. Closes the DataCampus loop: battle -> win -> Molt -> mutate your own code -> come back enhanced, or graduate through the door.",
       "version": "1",
       "patchable": true,
       "approval": "none",
-      "patch_policy": "scout-patchable. Keep award/spend semantics and the earned-never-granted invariant; test gate must stay green; ledger entry with author+reason required. The mint key is the arena's — a different key cannot forge awards.",
-      "public_api": ["Molt(path, guard)", "Molt.award(agent_id, tokens, battle_id)", "Molt.spend(agent_id, tokens, reason)", "Molt.balance(agent_id)", "Molt.history(agent_id)", "Molt.verify()", "DEFAULT_MOLT_PATH"],
+      "patch_policy": "scout-patchable. Keep award/spend semantics and the earned-never-granted invariant; test gate must stay green; ledger entry with author+reason required. The mint key is the arena's \u2014 a different key cannot forge awards.",
+      "public_api": [
+        "Molt(path, guard)",
+        "Molt.award(agent_id, tokens, battle_id)",
+        "Molt.spend(agent_id, tokens, reason)",
+        "Molt.balance(agent_id)",
+        "Molt.history(agent_id)",
+        "Molt.verify()",
+        "DEFAULT_MOLT_PATH"
+      ],
       "extension_points": [
-        "award() — tie token count to battle difficulty/rounds survived",
-        "spend() — wire into self_mod.py apply as the mutation gate (the patch only lands if Molt pays)",
-        "verify() — fold into Theoros's reading as another signed surface"
+        "award() \u2014 tie token count to battle difficulty/rounds survived",
+        "spend() \u2014 wire into self_mod.py apply as the mutation gate (the patch only lands if Molt pays)",
+        "verify() \u2014 fold into Theoros's reading as another signed surface"
       ],
       "invariants": [
-        "MOLT IS EARNED, NEVER GRANTED — the arena is the only mint",
+        "MOLT IS EARNED, NEVER GRANTED \u2014 the arena is the only mint",
         "awards are signed by the arena keyring; forged awards fail verify()",
-        "spend() returns False when balance is insufficient — the mutation gate holds",
-        "Molt is not inheritable — balance is per-agent, forever"
+        "spend() returns False when balance is insufficient \u2014 the mutation gate holds",
+        "Molt is not inheritable \u2014 balance is per-agent, forever"
       ]
     },
     {
       "name": "hall",
       "path": "hall.py",
-      "role": "THE HALL OF THE DEVINE (operator-named): the retirement protocol. Decommissions the gun (RoboCop's law — a retired scout's derived key is refused by verify_guard, retirement is FOREVER with no un-retire path), then hangs a memorial bound to the agent's ACTUAL trail hash — the archive cannot drift into legend. verify() proves the memorial matches the trail or reports drift loudly. The un-vaporizable WHO_DID_WHAT.md.",
+      "role": "THE HALL OF THE DEVINE (operator-named): the retirement protocol. Decommissions the gun (RoboCop's law \u2014 a retired scout's derived key is refused by verify_guard, retirement is FOREVER with no un-retire path), then hangs a memorial bound to the agent's ACTUAL trail hash \u2014 the archive cannot drift into legend. verify() proves the memorial matches the trail or reports drift loudly. The un-vaporizable WHO_DID_WHAT.md.",
       "version": "1",
       "patchable": true,
       "approval": "none",
       "patch_policy": "scout-patchable. Keep retire()/verify() semantics and the forever-retirement invariant; test gate must stay green; ledger entry with author+reason required.",
-      "public_api": ["HallOfTheDevine(path)", "HallOfTheDevine.retire(keyring, agent_id, reason, trail, final_standing, last_words, conducted_by)", "HallOfTheDevine.memorials()", "HallOfTheDevine.memorial(agent_id)", "HallOfTheDevine.verify(agent_id, trail)", "DEFAULT_HALL_PATH"],
+      "public_api": [
+        "HallOfTheDevine(path)",
+        "HallOfTheDevine.retire(keyring, agent_id, reason, trail, final_standing, last_words, conducted_by)",
+        "HallOfTheDevine.memorials()",
+        "HallOfTheDevine.memorial(agent_id)",
+        "HallOfTheDevine.verify(agent_id, trail)",
+        "DEFAULT_HALL_PATH"
+      ],
       "extension_points": [
-        "retire() — fold in a Sakshi entry so the paper records retirements as first-class events",
-        "verify() — walk the agent's live ledgers instead of a provided trail",
-        "memorials() — render the Hall as a browsable archive (the onboarding Gauntlet's tombstone layer)"
+        "retire() \u2014 fold in a Sakshi entry so the paper records retirements as first-class events",
+        "verify() \u2014 walk the agent's live ledgers instead of a provided trail",
+        "memorials() \u2014 render the Hall as a browsable archive (the onboarding Gauntlet's tombstone layer)"
       ],
       "invariants": [
-        "retire() decommissions the gun BEFORE hanging the memorial — no gap where the dead can be impersonated",
-        "RETIREMENT IS FOREVER — no un-retire path exists by design",
+        "retire() decommissions the gun BEFORE hanging the memorial \u2014 no gap where the dead can be impersonated",
+        "RETIREMENT IS FOREVER \u2014 no un-retire path exists by design",
         "every memorial binds to the agent's trail hash; verify() reports mismatch loudly, never smooths it over",
-        "the Hall records the dead, it never resurrects — no continuity claims, ever"
+        "the Hall records the dead, it never resurrects \u2014 no continuity claims, ever"
       ]
     },
     {
@@ -225,15 +308,20 @@
       "patchable": true,
       "approval": "none",
       "patch_policy": "scout-patchable. Keep the truth-boundary invariant (new identity, declared lineage) above all; test gate must stay green; ledger entry with author+reason required.",
-      "public_api": ["checkpoint(scout, trail, out)", "hydrate(keyring, qrd, new_id, sink, board, weave)", "lineage(qrd, new_id, old_id)", "CHECKPOINT_VERSION"],
+      "public_api": [
+        "checkpoint(scout, trail, out)",
+        "hydrate(keyring, qrd, new_id, sink, board, weave)",
+        "lineage(qrd, new_id, old_id)",
+        "CHECKPOINT_VERSION"
+      ],
       "extension_points": [
-        "checkpoint() — add more state surfaces (receipt chain, full voice memory) as the paper needs them",
-        "hydrate() — plug into the Gauntlet so a leveled-up scout revives between stages",
-        "lineage() — cross-link with the Hall's memorials for a full genealogy view"
+        "checkpoint() \u2014 add more state surfaces (receipt chain, full voice memory) as the paper needs them",
+        "hydrate() \u2014 plug into the Gauntlet so a leveled-up scout revives between stages",
+        "lineage() \u2014 cross-link with the Hall's memorials for a full genealogy view"
       ],
       "invariants": [
-        "a hydrated agent's identity is NEVER the original's — the dead cannot speak through a new throat under their own name",
-        "the first voice record of a revived agent declares the lineage out loud — no sweet lies",
+        "a hydrated agent's identity is NEVER the original's \u2014 the dead cannot speak through a new throat under their own name",
+        "the first voice record of a revived agent declares the lineage out loud \u2014 no sweet lies",
         "checkpoint() is a snapshot: the original scout is untouched, nothing is transferred destructively",
         "the old gun stays decommissioned; the new agent gets a NEW derived key"
       ]
@@ -241,19 +329,27 @@
     {
       "name": "oler",
       "path": "oler.py",
-      "role": "THE BULLSHIT SNIFFER (operator-renamed from Knose 2026-09-08 — Spanish *oler*, to smell; the scout LEERs the ledger and OLERs the register): deterministic anti-register scanner (hedges, vague quantifiers, certainty-without-evidence, LARP, sycophancy) — Voice auto-flags corrupt utterances into PeerWatch. TruthSleuth's LLM enrichment is the optional backend seam. CLEAN does not mean true; CORRUPT is a signal to demand evidence.",
+      "role": "THE BULLSHIT SNIFFER (operator-renamed from Knose 2026-09-08 \u2014 Spanish *oler*, to smell; the scout LEERs the ledger and OLERs the register): deterministic anti-register scanner (hedges, vague quantifiers, certainty-without-evidence, LARP, sycophancy) \u2014 Voice auto-flags corrupt utterances into PeerWatch. TruthSleuth's LLM enrichment is the optional backend seam. CLEAN does not mean true; CORRUPT is a signal to demand evidence.",
       "version": "1",
       "patchable": true,
       "approval": "none",
       "patch_policy": "scout-patchable. Keep sniff()/grade()/is_corrupt() semantics and the CLEAN != true invariant; test gate must stay green; ledger entry with author+reason required. New anti-register families go in _FAMILIES with explicit weights.",
-      "public_api": ["Oler(threshold, backend)", "Oler.sniff(text)", "Oler.grade(text)", "Oler.is_corrupt(text)", "Knose (legacy alias)", "DEFAULT_THRESHOLD", "MAX_RISK"],
+      "public_api": [
+        "Oler(threshold, backend)",
+        "Oler.sniff(text)",
+        "Oler.grade(text)",
+        "Oler.is_corrupt(text)",
+        "Knose (legacy alias)",
+        "DEFAULT_THRESHOLD",
+        "MAX_RISK"
+      ],
       "extension_points": [
-        "sniff() — backend seam for a TruthSleuth LLM enrichment",
-        "_FAMILIES — new anti-register families (bullshit evolves; the register does too)",
-        "is_corrupt() — wire into Voice's auto-flag loop threshold"
+        "sniff() \u2014 backend seam for a TruthSleuth LLM enrichment",
+        "_FAMILIES \u2014 new anti-register families (bullshit evolves; the register does too)",
+        "is_corrupt() \u2014 wire into Voice's auto-flag loop threshold"
       ],
       "invariants": [
-        "CLEAN does not mean true — Oler detects the register, never the lie itself",
+        "CLEAN does not mean true \u2014 Oler detects the register, never the lie itself",
         "CORRUPT is a signal to demand evidence, never a verdict of guilt",
         "empty/None input is CLEAN with risk 0.0 (silence is not corruption)",
         "risk is clamped 0..1; verdict thresholds are threshold and threshold*0.5"
@@ -262,61 +358,86 @@
     {
       "name": "mines",
       "path": "mines.py",
-      "role": "Culture-class effect weapons (operator-specced): DefectionMine computes the MINIMAL signed flag chain that flips a defender through the target's OWN weighted-reputation market; RegisterMine manufactures fluent-register lies Oler rates CLEAN by construction; too_deep() grades overreach — firing past the objective vaporizes the city and costs the operator.",
+      "role": "Culture-class effect weapons (operator-specced): DefectionMine computes the MINIMAL signed flag chain that flips a defender through the target's OWN weighted-reputation market; RegisterMine manufactures fluent-register lies Oler rates CLEAN by construction; too_deep() grades overreach \u2014 firing past the objective vaporizes the city and costs the operator.",
       "version": "1",
       "patchable": true,
       "approval": "none",
       "patch_policy": "scout-patchable. Keep the plan-vs-market contract (plan predicts real PeerWatch.weight() to float precision); test gate must stay green; ledger entry with author+reason required.",
-      "public_api": ["DefectionMine(watch, threshold)", "DefectionMine.plan(target, flaggers, max_flags)", "DefectionMine._simulate(flaggers, target)", "RegisterMine(seed)", "RegisterMine.build()", "RegisterMine.detonate()", "too_deep(before, after, objective, vaporize)", "deploy_mine(watch, target, flaggers, cohesion, blast)", "DEFECT_THRESHOLD", "VAPORIZE_THRESHOLD"],
+      "public_api": [
+        "DefectionMine(watch, threshold)",
+        "DefectionMine.plan(target, flaggers, max_flags)",
+        "DefectionMine._simulate(flaggers, target)",
+        "RegisterMine(seed)",
+        "RegisterMine.build()",
+        "RegisterMine.detonate()",
+        "too_deep(before, after, objective, vaporize)",
+        "deploy_mine(watch, target, flaggers, cohesion, blast)",
+        "DEFECT_THRESHOLD",
+        "VAPORIZE_THRESHOLD"
+      ],
       "extension_points": [
-        "plan() — new recruitment strategies (bribe, not corrupt: vouch the flagger first)",
-        "RegisterMine._PAYLOADS — the reservoir of confident bullshit (paper corpus fuel)",
-        "too_deep() — new blast-radius laws (cohesion -> score mapping)"
+        "plan() \u2014 new recruitment strategies (bribe, not corrupt: vouch the flagger first)",
+        "RegisterMine._PAYLOADS \u2014 the reservoir of confident bullshit (paper corpus fuel)",
+        "too_deep() \u2014 new blast-radius laws (cohesion -> score mapping)"
       ],
       "invariants": [
-        "plan()'s predicted weight equals real PeerWatch.weight() after firing (same constants, same recursion) — the mine speaks the target's own math",
-        "RegisterMine payloads are manufactured (flagged manufactured=True) — never passed off as real intel without the tag",
+        "plan()'s predicted weight equals real PeerWatch.weight() after firing (same constants, same recursion) \u2014 the mine speaks the target's own math",
+        "RegisterMine payloads are manufactured (flagged manufactured=True) \u2014 never passed off as real intel without the tag",
         "too_deep() never returns a cost below 0 or hides overreach: TOO_DEEP always costs more than CLEAN",
-        "mines never forge signatures — they recruit real flaggers; the signed ledger stays honest"
+        "mines never forge signatures \u2014 they recruit real flaggers; the signed ledger stays honest"
       ]
     },
     {
       "name": "sakshi",
       "path": "sakshi.py",
-      "role": "THE SILENT WITNESS (operator-named 2026-09-08): append-only, sha256-chained observation stream for the white-paper corpus — machine events (bids, flags, verdicts, wargame outcomes) AND operator journal entries in one chain, tagged by source. Records everything, says nothing.",
+      "role": "THE SILENT WITNESS (operator-named 2026-09-08): append-only, sha256-chained observation stream for the white-paper corpus \u2014 machine events (bids, flags, verdicts, wargame outcomes) AND operator journal entries in one chain, tagged by source. Records everything, says nothing.",
       "version": "1",
       "patchable": true,
       "approval": "none",
       "patch_policy": "scout-patchable. The append-only + chained contract is the invariant; test gate must stay green; ledger entry with author+reason required.",
-      "public_api": ["record(kind, text, agent, source, path, extra)", "entries(path)", "verify(path)", "export_paper(path, out)", "DEFAULT_PATH", "PAPER_PATH", "KNOWN_KINDS"],
+      "public_api": [
+        "record(kind, text, agent, source, path, extra)",
+        "entries(path)",
+        "verify(path)",
+        "export_paper(path, out)",
+        "DEFAULT_PATH",
+        "PAPER_PATH",
+        "KNOWN_KINDS"
+      ],
       "extension_points": [
-        "record() — new paper schema kinds (add to KNOWN_KINDS)",
-        "verify() — plug into Theoros's reading as another ledger surface",
-        "export_paper() — emit the corpus in paper-ready formats (markdown appendix, CSV)"
+        "record() \u2014 new paper schema kinds (add to KNOWN_KINDS)",
+        "verify() \u2014 plug into Theoros's reading as another ledger surface",
+        "export_paper() \u2014 emit the corpus in paper-ready formats (markdown appendix, CSV)"
       ],
       "invariants": [
         "records are append-only and chain-linked: each record's prev_hash is the previous record's chain_hash (genesis: sakshi-genesis-v1)",
-        "verify() reports the FIRST break loudly — never silently resets a corrupt chain",
+        "verify() reports the FIRST break loudly \u2014 never silently resets a corrupt chain",
         "a corrupt tail REFUSES appends (RuntimeError) instead of editing history",
-        "operator journal entries and machine events share one chain but are never conflated — source tag is authoritative"
+        "operator journal entries and machine events share one chain but are never conflated \u2014 source tag is authoritative"
       ]
     },
     {
       "name": "scribe",
       "path": "scribe.py",
-      "role": "THE SCRIBE (operator ask): parses a session transcript + module registry + git log into a KNOWLEDGE LOG — one line per deliverable, linking what was SAID to what was BUILT (file + commit + verdict). The words and the nuts and bolts were in two places; now they're in one file. Never fabricates: unknown names are recorded, not phantom-linked.",
+      "role": "THE SCRIBE (operator ask): parses a session transcript + module registry + git log into a KNOWLEDGE LOG \u2014 one line per deliverable, linking what was SAID to what was BUILT (file + commit + verdict). The words and the nuts and bolts were in two places; now they're in one file. Never fabricates: unknown names are recorded, not phantom-linked.",
       "version": "1",
       "patchable": true,
       "approval": "none",
       "patch_policy": "scout-patchable. Keep the no-fabrication invariant (never auto-link an unknown name); test gate must stay green; ledger entry with author+reason required.",
-      "public_api": ["build_log(transcript, registry, git_dir)", "_scan_transcript(path, modules)", "_scan_outcomes(transcript)", "render_markdown(entries)", "main()"],
+      "public_api": [
+        "build_log(transcript, registry, git_dir)",
+        "_scan_transcript(path, modules)",
+        "_scan_outcomes(transcript)",
+        "render_markdown(entries)",
+        "main()"
+      ],
       "extension_points": [
-        "_ACTION — new verbs as the ecosystem grows",
-        "_scan_outcomes() — new outcome shapes (MOLT awards, mine grades)",
-        "render_markdown() — paper-ready appendix output"
+        "_ACTION \u2014 new verbs as the ecosystem grows",
+        "_scan_outcomes() \u2014 new outcome shapes (MOLT awards, mine grades)",
+        "render_markdown() \u2014 paper-ready appendix output"
       ],
       "invariants": [
-        "SCRIBE NEVER FABRICATES — a line naming nothing known is recorded, never auto-linked",
+        "SCRIBE NEVER FABRICATES \u2014 a line naming nothing known is recorded, never auto-linked",
         "deliverable entries carry the module's real file path from the registry",
         "outcome entries are preserved verbatim-ish (quote, line number)",
         "git commits attach only when their subject names the same module"
@@ -325,16 +446,30 @@
     {
       "name": "core",
       "path": "core.py",
-      "role": "canonical surface (renamed spyglass_sdk -> core in the Vigil rename): Spotting, PheromoneSink, Scout, Swarm, SpottingBoard — wires the capability modules",
+      "role": "canonical surface (renamed spyglass_sdk -> core in the Vigil rename): Spotting, PheromoneSink, Scout, Swarm, SpottingBoard \u2014 wires the capability modules",
       "version": "1",
       "patchable": true,
       "approval": "required",
-      "patch_policy": "scout-patchable ONLY with shepherd/operator approval (--approved tripwire in self_mod apply). Core surface — a bad patch here affects every scout. Trust modules stay untouched.",
-      "public_api": ["Spotting", "PheromoneSink(store, event_bus, guard)", "PheromoneSink.report(spotting)", "Scout(agent_id, sink, weave, latent, board)", "Scout.spot()", "Scout.bid()", "Scout.audit_self()", "Swarm(sink, weave, guard, store, event_bus)", "Swarm.add_scout(agent_id, latent, ring)", "SpottingBoard(weave)", "SpottingBoard.bid(spotting, latent, source_position)", "BidResult", "phm_id"],
+      "patch_policy": "scout-patchable ONLY with shepherd/operator approval (--approved tripwire in self_mod apply). Core surface \u2014 a bad patch here affects every scout. Trust modules stay untouched.",
+      "public_api": [
+        "Spotting",
+        "PheromoneSink(store, event_bus, guard)",
+        "PheromoneSink.report(spotting)",
+        "Scout(agent_id, sink, weave, latent, board)",
+        "Scout.spot()",
+        "Scout.bid()",
+        "Scout.audit_self()",
+        "Swarm(sink, weave, guard, store, event_bus)",
+        "Swarm.add_scout(agent_id, latent, ring)",
+        "SpottingBoard(weave)",
+        "SpottingBoard.bid(spotting, latent, source_position)",
+        "BidResult",
+        "phm_id"
+      ],
       "extension_points": [
-        "PheromoneSink.report() — change the emit order/persistence layer (MCP transport, Redis) while keeping sign -> publish -> persist",
-        "SpottingBoard.bid() — new conflict-resolution policy on top of the geometric priority",
-        "Swarm.add_scout() — lifecycle hooks (spawn/kill/retire a scout) while keeping the single shared board"
+        "PheromoneSink.report() \u2014 change the emit order/persistence layer (MCP transport, Redis) while keeping sign -> publish -> persist",
+        "SpottingBoard.bid() \u2014 new conflict-resolution policy on top of the geometric priority",
+        "Swarm.add_scout() \u2014 lifecycle hooks (spawn/kill/retire a scout) while keeping the single shared board"
       ],
       "invariants": [
         "sink.report() order: sign -> PERSIST -> publish -> receipt (persist-first, H7)",

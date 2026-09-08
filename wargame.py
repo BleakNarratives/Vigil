@@ -353,16 +353,31 @@ class ScoutWargame:
             theoros = Theoros(store=red_store, bus=bus, guard=red_guns["viper"],
                               receipts=red_swarm.sink.receipts,
                               peer_watch=red_watch, voice=red_swarm.sink.voice,
-                              sniffer=None, repugnant=red_reg)
+                              sniffer=None, repugnant=red_reg,
+                              extra_stores=[blue_store])
             reading = theoros.observe()
             print(f"\n{reading.render()}")
+            # each side audits the shared bus against BOTH stores — the
+            # other team's signals are real, not ghosts (shared-bus fix)
             blue_reading = Theoros(store=blue_store, bus=bus,
                                    guard=blue_guns["equinex"],
                                    receipts=blue_swarm.sink.receipts,
                                    peer_watch=blue_watch,
                                    voice=blue_swarm.sink.voice,
-                                   sniffer=None, repugnant=blue_reg).observe()
+                                   sniffer=None, repugnant=blue_reg,
+                                   extra_stores=[red_store]).observe()
             print(f"\n{blue_reading.render().replace('THEOROS READING', 'THEOROS READING (BLUE)')}")
+
+            # THE SHIT SHOVELER DROPS — the surprise third faction. Brown
+            # audits BOTH teams against the shared bus, solo first (pants
+            # down: neither team alone can account for the other's traffic),
+            # then united (the union of stores walks the chain clean).
+            from vigil.brown import BrownHat
+            brown = BrownHat(
+                stores=[red_store, blue_store], bus=bus,
+                receipts=[red_swarm.sink.receipts, blue_swarm.sink.receipts])
+            brown_verdict = brown.audit(reading, blue_reading)
+            print(f"\n{brown_verdict.render()}")
             return {
                 "score": self.red_score - int(self.mine_cost),
                 "red_score": self.red_score, "blue_score": self.blue_score,
@@ -378,6 +393,7 @@ class ScoutWargame:
                                    if self.molt is not None else None),
                 "reading": reading,
                 "blue_reading": blue_reading,
+                "brown": brown_verdict,
             }
         finally:
             import shutil
