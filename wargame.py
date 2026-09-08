@@ -13,7 +13,12 @@ primitives (Swarm, SpottingBoard, Voice, PeerWatch, Oler, Theoros). The
 scanner is deterministic and stdlib-only; swap it for Code-City's real
 attack modules by replacing `scan()`.
 
-Run:  python3 vigil/wargame.py <target_dir> [rounds]
+The scanner is pluggable: pass scan_fn= to the constructor. The default
+is the deterministic stdlib scanner; vigil.citybridge.scan wires in
+Code-City's real attack taxonomy (static lanes) and its actual
+RedTeamAttacker battery (live lane, opt-in).
+
+Run:  python3 vigil/wargame.py <target_dir> [rounds] [--city]
 """
 import hashlib
 import os
@@ -131,11 +136,16 @@ class ScoutWargame:
 
     def __init__(self, target_dir: str, rounds: int = 3,
                  unit_secret: bytes = b"wargame-unit-secret",
-                 mode: str = "arena"):
+                 mode: str = "arena",
+                 scan_fn: Optional[Any] = None):
         self.target_dir = target_dir
         self.rounds = max(1, rounds)
         self.unit_secret = unit_secret
         self.mode = mode if mode in ("arena", "gauntlet", "flex") else "arena"
+        # THE SEAM: default = the stdlib scanner (unchanged behavior). The
+        # Code-City bridge (vigil.citybridge.scan) plugs in here — three
+        # lanes, same finding schema, city lanes opt-in.
+        self.scan_fn = scan_fn if scan_fn is not None else scan
         self.findings: List[Dict[str, Any]] = []
         self.red_score = 0
         self.blue_score = 0
@@ -266,7 +276,7 @@ class ScoutWargame:
         self.keyring = keyring
         self.molt = self._make_molt(tmp)
         try:
-            findings = scan(self.target_dir)
+            findings = list(self.scan_fn(self.target_dir))
             self.findings = findings
             if not findings:
                 print("no findings in target — nothing to fight over")
@@ -471,12 +481,19 @@ class ScoutWargame:
 
 
 def main():
-    if len(sys.argv) < 2:
-        print("Usage: python3 vigil/wargame.py <target_dir> [rounds]")
+    args = sys.argv[1:]
+    use_city = "--city" in args
+    args = [a for a in args if a != "--city"]
+    if len(args) < 1:
+        print("Usage: python3 vigil/wargame.py <target_dir> [rounds] [--city]")
         sys.exit(1)
-    target = sys.argv[1]
-    rounds = int(sys.argv[2]) if len(sys.argv) > 2 else 3
-    game = ScoutWargame(target, rounds=rounds)
+    target = args[0]
+    rounds = int(args[1]) if len(args) > 1 else 3
+    scan_fn = None
+    if use_city:
+        from vigil.citybridge import scan as city_scan
+        scan_fn = city_scan
+    game = ScoutWargame(target, rounds=rounds, scan_fn=scan_fn)
     result = game.play()
     print("\n" + "=" * 60)
     print(f"ENGAGEMENT CLOSED — RED {result['red_score']} / "
