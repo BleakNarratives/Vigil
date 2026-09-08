@@ -27,6 +27,8 @@ SESSION: 2026-09-08
 TIER: 2
 /DNA_TAG
 """
+import hashlib
+import hmac
 import json
 import os
 import time
@@ -40,8 +42,18 @@ except ImportError:
     except ImportError:  # pragma: no cover - degraded mode
         CommandGuard = None
 
+# Fields a flag/vouch signature MUST cover. CommandGuard's Spotting-canonical
+# does NOT cover target_agent/spotting_id/detail, so PeerWatch signs its own
+# canonical with the same key (own lock, own key — never a shadow copy).
+_SIGNED_FIELDS = ("ts", "kind", "actor", "target_agent", "spotting_id",
+                  "detail")
+
 WEIGHT_MIN = 0.25
-WEIGHT_MAX = 1.25
+WEIGHT_MAX = 2.0
+
+# Recursion cap for self-referential reputation (A vouches B, B vouches A).
+# Depth-limited, deterministic — no fixed-point solver needed.
+_WEIGHT_DEPTH = 3
 
 
 def _clamp(value: float, lo: float, hi: float) -> float:
@@ -87,8 +99,8 @@ class PeerWatch:
             "spotting_id": spotting_id,
             "detail": detail,
         }
-        if self.guard is not None and hasattr(self.guard, "sign"):
-            self.guard.sign(record)  # flagger signs its own record
+        if self.guard is not None and hasattr(self.guard, "key"):
+            record["signature"] = self._sign(record)  # flagger signs its own record
         if self.path:
             d = os.path.dirname(self.path)
             if d:
@@ -124,23 +136,49 @@ class PeerWatch:
                     continue
         return out
 
-    def weight(self, agent_id: str) -> float:
-        """Bid-priority multiplier from peer standing. Flags discount,
-        vouches amplify — clamped to [WEIGHT_MIN, WEIGHT_MAX]."""
-        records = self.history(agent_id)
-        flags = sum(1 for r in records if r.get("kind") == "flag")
-        vouches = sum(1 for r in records if r.get("kind") == "vouch")
-        return _clamp((vouches + 1.0) / (flags + 1.0), WEIGHT_MIN, WEIGHT_MAX)
+    def weight(self, agent_id: str, _depth: int = 0) -> float:
+        """Bid-priority multiplier from peer standing, RECURSIVELY WEIGHTED:
+        every flag/vouch counts according to the ACTOR's own standing. A
+        vouch from a dirty scout is worth a dirty vouch; a false flag from
+        a dirtbag barely dents its target. Colluding liars vouching each
+        other pay with their own collapsed weight — mutual backscratching
+        is priced (the prisoner's dilemma, iterated).
+
+        depth-capped so circular vouching (A<->B) stays deterministic.
+        """
+        if _depth > _WEIGHT_DEPTH:
+            return 1.0
+        vouch_sum = 0.0
+        flag_sum = 0.0
+        for rec in self.history(agent_id):
+            actor_weight = self.weight(rec.get("actor", ""), _depth + 1)
+            if rec.get("kind") == "vouch":
+                vouch_sum += actor_weight
+            elif rec.get("kind") == "flag":
+                flag_sum += actor_weight
+        return _clamp((vouch_sum + 1.0) / (flag_sum + 1.0), WEIGHT_MIN, WEIGHT_MAX)
+
+    def _canonical(self, record: Dict[str, Any]) -> str:
+        fields = {k: record.get(k) for k in _SIGNED_FIELDS}
+        return json.dumps(fields, sort_keys=True, separators=(",", ":"))
+
+    def _sign(self, record: Dict[str, Any]) -> str:
+        key = getattr(self.guard, "key", None)
+        if key is None:
+            return ""
+        return hmac.new(bytes(key), self._canonical(record).encode("utf-8"),
+                        hashlib.sha256).hexdigest()
 
     def verify_record(self, record: Dict[str, Any]) -> bool:
         """True if a record carries a signature that verifies against the
-        watch's guard (when one is configured)."""
+        watch's guard (when one is configured). Flipping target_agent,
+        spotting_id, or detail breaks it."""
         if self.guard is None or not record.get("signature"):
             return False
-        try:
-            return self.guard.verify(record)
-        except Exception:
-            return False
+        expected = hmac.new(bytes(self.guard.key),
+                            self._canonical(record).encode("utf-8"),
+                            hashlib.sha256).hexdigest()
+        return hmac.compare_digest(expected, str(record.get("signature")))
 
 
 __all__ = ["PeerWatch", "WEIGHT_MIN", "WEIGHT_MAX"]

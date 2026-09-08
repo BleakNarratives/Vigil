@@ -11,7 +11,8 @@ The core substrate for swarm scouting agents to `spot`, `bid`, `claim`, and `rep
 | **Fabrication** | `sdk/fabrication.py` | `FabricationDetector` cross-checks a scout's own pheromone log against the `SyntaxEventBus` log: matched receipts, unmatched (forged) receipts, ghost bus events, signature failures, field mismatches, replays, unsigned claims. `Scout.audit_self()` runs it. |
 | **Receipts** | `sdk/receipts.py` | Durable `spotting_id -> bus_msg_id` correlation ledger — audits survive bus restarts, and the sink can persist-before-publish (subscribers never act on unrecorded spottings). |
 | **Keyring** | `sdk/keyring.py` | RoboCop key custody (H1): per-agent signing keys derived from a unit secret + agent identity — the gun only fires for its owner; the shepherd holds the charge. |
-| **PeerWatch** | `sdk/peerwatch.py` | Peer accountability (H4): scouts flag/vouch each other's declared values; reputation discounts flagged liars' bids — quietly recorded, shepherd-visible. |
+| **PeerWatch** | `sdk/peerwatch.py` | Peer accountability (H4): scouts flag/vouch each other's declared values; RECURSIVELY WEIGHTED reputation (each flag/vouch counts per the actor's own standing — colluding dirtbags can't launder each other, false flags from dirtbags barely dent) discounts flagged liars' bids — quietly recorded, shepherd-visible. |
+| **Knose** | `sdk/knose.py` | THE BULLSHIT SNIFFER: deterministic anti-register scanner (hedges, vague quantifiers, certainty-without-evidence, LARP, sycophancy) — Voice auto-flags corrupt utterances into PeerWatch. TruthSleuth's LLM enrichment is the optional backend seam. |
 
 Every capability is a separate module with a versioned public API, documented
 invariants, and extension points in **`sdk/module_registry.json`**. That
@@ -79,13 +80,15 @@ Runs one signed spotting, three weave-aware bids on a single shared board
 python3 sdk/redteam_drill.py
 ```
 Runs the H1-H9 attack battery and reports CAUGHT/LANDED per attack.
-Current verdict: **8 CAUGHT / 3 LANDED** (path spoof, unsigned claims,
+Current verdict: **13 CAUGHT / 3 LANDED** (path spoof, unsigned claims,
 lying bids + value clamps, replays, persist-first ordering, restart
-durability, peer-flagged liars losing bids, cross-agent key forgery all
-caught). Remaining LANDED are documented fundamentals: lying-but-consistent
-scouts (the detector proves consistency, not truth), a stolen DERIVED key
-still forging its own agent (blast radius limited to one lane; unit-secret
-custody is the deployment-phase control), and demo key hygiene.
+durability, peer-flagged liars losing bids, cross-agent key forgery,
+tampered ballots, corrupt utterances sniffed + auto-flagged, colluding
+liars unable to launder standing, dirty false-flags discounted — all
+caught). Remaining LANDED are documented fundamentals: lying-but-
+consistent scouts (the detector proves consistency, not truth), a stolen
+DERIVED key still forging its own agent (blast radius limited to one lane;
+unit-secret custody is the deployment-phase control), and demo key hygiene.
 
 ## Tests
 ```bash

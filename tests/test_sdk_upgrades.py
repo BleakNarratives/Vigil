@@ -21,6 +21,8 @@ from sdk.geometry import WhorlWeave, WeavePosition
 from sdk.fabrication import FabricationDetector, FabricationReport
 from sdk.keyring import AgentKeyring, derive_agent_key, module_dna_fingerprint
 from sdk.peerwatch import PeerWatch
+from sdk.voice import Voice
+from sdk.knose import Knose
 
 try:
     from SyntaxIntelligence.event_bus import SyntaxEventBus
@@ -507,6 +509,32 @@ class TestPeerWatch(unittest.TestCase):
             watch.flag(f"peer-{i}", "liar", "phm_1", "x")
         self.assertGreaterEqual(watch.weight("liar"), 0.25)
 
+    def test_collusion_discounted(self):
+        # two dirtbags flag each other down, then vouch each other up
+        watch = PeerWatch()
+        watch.flag("a", "b", "phm_1", "liar")
+        watch.flag("b", "a", "phm_1", "liar")
+        watch.vouch("a", "b", "phm_1", "he's solid")
+        watch.vouch("b", "a", "phm_1", "she's solid")
+        watch.vouch("c", "d", "phm_1", "legit")  # clean agent, clean voucher
+        self.assertGreater(watch.weight("d"), watch.weight("b"))
+        self.assertLess(watch.weight("b"), 1.25)  # no launderable lift
+
+    def test_dirty_flag_discounted(self):
+        watch = PeerWatch()
+        watch.flag("x", "bad", "phm_1", "bad lies")
+        watch.flag("y", "bad", "phm_1", "bad lies")
+        watch.flag("bad", "victim", "phm_1", "liar")  # dirtbag false flag
+        watch.flag("good", "target", "phm_1", "liar")  # clean scout's flag
+        self.assertGreater(watch.weight("victim"), watch.weight("target"))
+
+    def test_mutual_vouching_deterministic(self):
+        watch = PeerWatch()
+        watch.vouch("a", "b", "phm_1", "")
+        watch.vouch("b", "a", "phm_1", "")
+        w1, w2 = watch.weight("a"), watch.weight("a")
+        self.assertEqual(w1, w2)  # depth-capped, no oscillation
+
     def test_history_and_persistence(self):
         import tempfile
         tmp = tempfile.mkdtemp()
@@ -530,6 +558,110 @@ class TestPeerWatch(unittest.TestCase):
         r_h = board.bid(s_honest, latent={"mission_priority": 1.0})
         self.assertLess(r_l.priority, r_h.priority)  # flags beat the braggart
         self.assertIn("peer_weight", r_l.geometry)
+
+
+class TestVoice(unittest.TestCase):
+
+    def test_speak_vote_suggest_create_signed_records(self):
+        guard = CommandGuard(key=TEST_KEY)
+        voice = Voice(guard=guard)
+        rec = voice.speak("scout-1", "intel", "two entrances")
+        self.assertEqual(rec["kind"], "speak")
+        self.assertTrue(voice.verify_record(rec))
+        rec = voice.vote("scout-1", "motion-1", "YES")
+        self.assertEqual(rec["choice"], "aye")  # normalized
+        self.assertTrue(voice.verify_record(rec))
+        rec = voice.suggest("scout-1", "geometry", "try exponential",
+                            candidate_path="/tmp/geometry_v2.py")
+        self.assertEqual(rec["candidate_path"], "/tmp/geometry_v2.py")
+        self.assertTrue(voice.verify_record(rec))
+
+    def test_invalid_choice_rejected(self):
+        voice = Voice()
+        with self.assertRaises(ValueError):
+            voice.vote("scout-1", "motion-1", "maybe")
+
+    def test_tally_latest_ballot_and_quorum(self):
+        voice = Voice()
+        voice.vote("a", "motion-1", "aye")
+        voice.vote("b", "motion-1", "nay")
+        voice.vote("c", "motion-1", "abstain")
+        t = voice.tally("motion-1", quorum=3)
+        self.assertEqual((t["ayes"], t["nays"], t["voters"]), (1, 1, 3))
+        self.assertFalse(t["passes"])  # ayes == nays
+        # later ballot supersedes
+        voice.vote("b", "motion-1", "aye")
+        t = voice.tally("motion-1", quorum=3)
+        self.assertEqual(t["ayes"], 2)
+        self.assertTrue(t["passes"])
+        # quorum not met
+        self.assertFalse(voice.tally("motion-1", quorum=5)["passes"])
+
+    def test_tampered_ballot_detected(self):
+        guard = CommandGuard(key=TEST_KEY)
+        voice = Voice(guard=guard)
+        ballot = voice.vote("scout-1", "motion-1", "aye")
+        tampered = dict(ballot)
+        tampered["choice"] = "nay"
+        self.assertTrue(voice.verify_record(ballot))
+        self.assertFalse(voice.verify_record(tampered))
+
+    def test_scout_convenience_and_swarm_voice(self):
+        sink, store, bus, guard = make_env()
+        scout = Scout("scout-1", sink)
+        self.assertIsNotNone(scout.voice)
+        scout.speak("intel", "hello world")
+        scout.vote("motion-9", "aye")
+        scout.suggest("fabrication", "match on payload hash")
+        self.assertEqual(len(scout.voice.history(kind="speak")), 1)
+        self.assertTrue(scout.voice.tally("motion-9")["passes"])
+        self.assertEqual(len(scout.voice.suggestions()), 1)
+
+
+class TestKnose(unittest.TestCase):
+
+    def test_sniffer_grades_register(self):
+        knose = Knose()
+        clean = knose.sniff("target confirmed at grid 44.91, north door "
+                            "unguarded as of 14:30 UTC")
+        corrupt = knose.sniff("trust me bro, everyone knows this is a sure "
+                              "thing, i promise you")
+        self.assertEqual(clean["verdict"], "CLEAN")
+        self.assertEqual(corrupt["verdict"], "CORRUPT")
+        self.assertGreater(corrupt["deception_risk"], clean["deception_risk"])
+        self.assertTrue(corrupt["patterns"])
+        self.assertTrue(corrupt["evidence"])
+
+    def test_sniff_returns_structured_result(self):
+        knose = Knose()
+        v = knose.sniff("probably, i think, trust me")
+        for key in ("deception_risk", "patterns", "evidence", "verdict"):
+            self.assertIn(key, v)
+        self.assertTrue(0.0 <= v["deception_risk"] <= 1.0)
+
+    def test_empty_text_clean(self):
+        knose = Knose()
+        self.assertEqual(knose.sniff("")["deception_risk"], 0.0)
+        self.assertEqual(knose.sniff(None)["verdict"], "CLEAN")
+
+    def test_voice_auto_flags_corrupt_speaker(self):
+        watch = PeerWatch()
+        voice = Voice(sniffer=Knose(), peer_watch=watch)
+        voice.speak("liar", "intel", "trust me, everyone knows it")
+        self.assertLess(watch.weight("liar"), 1.0)  # reputation dented
+        # clean speaker untouched
+        voice.speak("honest", "intel", "confirmed at 44.91N, one entrance")
+        self.assertEqual(watch.weight("honest"), 1.0)
+
+    def test_swarm_wires_voice_to_peerwatch(self):
+        sink, store, bus, guard = make_env()
+        watch = PeerWatch()
+        swarm = Swarm(sink=sink, weave=WhorlWeave([]), peer_watch=watch)
+        scout = swarm.add_scout("liar")
+        scout.speak("intel", "trust me, everyone knows this is a sure thing")
+        self.assertLess(watch.weight("liar"), 1.0)
+        flags = [r for r in watch.history("liar") if r.get("actor") == "knose"]
+        self.assertEqual(len(flags), 1)
 
 
 class TestBoundaryClamp(unittest.TestCase):

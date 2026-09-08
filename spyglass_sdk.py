@@ -83,6 +83,14 @@ except ImportError:
     except ImportError:
         PeerWatch = None
 
+try:
+    from sdk.voice import Voice
+except ImportError:
+    try:
+        from voice import Voice
+    except ImportError:
+        Voice = None
+
 # Attempt optional ecosystem imports
 try:
     from pheromone_store import PheromoneStore
@@ -175,6 +183,15 @@ class PheromoneSink:
                 path = str(self.store.store_path) + ".receipts.jsonl"
             receipts = ReceiptLedger(path=path)
         self.receipts = receipts
+        # Voice lane (B1): every scout bound to this sink shares the swarm's
+        # speak/vote/suggest ledger (durable alongside the store when present).
+        if Voice is not None:
+            vpath = None
+            if self.store is not None and getattr(self.store, "store_path", None):
+                vpath = str(self.store.store_path) + ".voice.jsonl"
+            self.voice = Voice(path=vpath, guard=self.guard)
+        else:
+            self.voice = None
 
     def report(self, spotting: Spotting) -> Spotting:
         # 1. proof-of-work: sign before anything leaves the scout.
@@ -327,6 +344,11 @@ class Swarm:
         self.weave = weave
         self.peer_watch = peer_watch
         self.board = SpottingBoard(weave=weave, peer_watch=peer_watch)
+        # KNOSE loop wiring: the swarm's Voice sniffs utterances and
+        # auto-flags corrupt speakers into the SAME peer ledger that
+        # weights bids — voice -> sniff -> flag -> reputation.
+        if self.sink.voice is not None and self.peer_watch is not None:
+            self.sink.voice.peer_watch = self.peer_watch
         self.scouts: Dict[str, Scout] = {}
 
     def add_scout(self, agent_id: str,
@@ -345,15 +367,41 @@ class Swarm:
 
 
 class Scout:
-    """Navi-like sub-agent helper, weave-aware and self-auditing."""
+    """Navi-like sub-agent helper, weave-aware, voice-equipped, self-auditing."""
     def __init__(self, agent_id: str, sink: PheromoneSink,
                  weave: Optional[Any] = None, latent: Optional[Dict[str, float]] = None,
-                 board: Optional[SpottingBoard] = None):
+                 board: Optional[SpottingBoard] = None,
+                 voice: Optional[Any] = None):
         self.agent_id = agent_id
         self.sink = sink
         self.weave = weave
         self.latent = latent or {}
         self.board = board if board is not None else SpottingBoard(weave=weave)
+        self.voice = voice if voice is not None else getattr(sink, "voice", None)
+
+    # -- voice (B1): express out loud, vote, suggest -------------------------
+
+    def speak(self, topic: str, message: str) -> Dict[str, Any]:
+        """Utterance on the corkboard, signed by this scout."""
+        if self.voice is None:
+            raise RuntimeError("no Voice lane (sdk/voice.py missing)")
+        return self.voice.speak(self.agent_id, topic, message)
+
+    def vote(self, motion: str, choice: str, reason: str = "") -> Dict[str, Any]:
+        """Ballot on a motion (aye/nay/abstain), signed by this scout."""
+        if self.voice is None:
+            raise RuntimeError("no Voice lane (sdk/voice.py missing)")
+        return self.voice.vote(self.agent_id, motion, choice, reason)
+
+    def suggest(self, module: str, reason: str,
+                candidate_path: Optional[str] = None,
+                patch_summary: str = "") -> Dict[str, Any]:
+        """Suggestion-box entry; candidate_path routes into the
+        self-modification review flow."""
+        if self.voice is None:
+            raise RuntimeError("no Voice lane (sdk/voice.py missing)")
+        return self.voice.suggest(self.agent_id, module, reason,
+                                  candidate_path, patch_summary)
 
     def spot(self, kind: str, target: str, payload: Dict[str, Any],
              confidence: float = 0.5, strength: float = 1.0,
@@ -446,6 +494,21 @@ def main():
         report = swarm.scouts["scout-1"].audit_self()
         print(f"  fabrication audit: {report.summary()}")
 
+        # Voice lane (B1): speak out loud, vote, suggest.
+        swarm.scouts["scout-1"].speak("intel", "target confirmed, two entrances")
+        swarm.scouts["scout-1"].vote("strike-now", "aye", "high confidence")
+        swarm.scouts["scout-2"].vote("strike-now", "nay", "resources low")
+        swarm.scouts["scout-3"].vote("strike-now", "aye")
+        tally = swarm.scouts["scout-1"].voice.tally("strike-now", quorum=3)
+        print(f"  voice    motion 'strike-now': {tally['ayes']} aye / "
+              f"{tally['nays']} nay / {tally['abstain']} abstain — "
+              f"passes={tally['passes']}")
+        swarm.scouts["scout-1"].suggest(
+            "geometry", "try exponential dispersion",
+            patch_summary="seam override per mission profile")
+        print(f"  voice    suggestion in box: "
+              f"{len(swarm.scouts['scout-1'].voice.suggestions())} pending")
+
         if not verified:
             print("INTEGRITY FAILURE")
             sys.exit(1)
@@ -453,7 +516,8 @@ def main():
             print("FABRICATION HITS DETECTED")
             sys.exit(1)
 
-        print("Demo OK — signed, geometric bids resolved, self-audit consistent.")
+        print("Demo OK — signed, geometric bids resolved, voices heard, "
+              "self-audit consistent.")
         sys.exit(0)
 
 

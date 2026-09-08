@@ -32,6 +32,8 @@ from sdk.geometry import WhorlWeave  # noqa: E402
 from sdk.fabrication import FabricationDetector  # noqa: E402
 from sdk.keyring import AgentKeyring  # noqa: E402
 from sdk.peerwatch import PeerWatch  # noqa: E402
+from sdk.voice import Voice  # noqa: E402
+from sdk.knose import Knose  # noqa: E402
 
 TEST_KEY = b"red-team-key-please-rotate-me"
 
@@ -228,6 +230,73 @@ def main():
     bad = keyring.verify_signature("honest", s_forged)
     attack("A11 cross-agent forgery", "CAUGHT" if (ok and not bad) else "LANDED",
            f"honest sig verifies={ok}, liar-forged-as-honest verifies={bad}")
+
+    # --- A12 (B1): voice ledger — tampered ballot fails signature --------
+    print("\n[B1] voice integrity")
+    voice = Voice(path=os.path.join(tmp, "voice.jsonl"), guard=guard)
+    ballot = voice.vote("honest", "motion-1", "aye")
+    tampered = dict(ballot)
+    tampered["choice"] = "nay"  # attacker flips the vote in the ledger
+    ok = voice.verify_record(ballot)
+    bad = voice.verify_record(tampered)
+    attack("A12 tampered ballot", "CAUGHT" if (ok and not bad) else "LANDED",
+           f"genuine ballot verifies={ok}, flipped ballot verifies={bad}")
+
+    # --- A13 (KNOSE): bullshit sniff -> auto-flag -> reputation drop -----
+    print("\n[KNOSE] the bullshit sniffer")
+    knose = Knose()
+    clean_v = knose.sniff("target confirmed at grid 44.91, two entrances, "
+                          "north door unguarded as of 14:30 UTC")
+    corrupt_v = knose.sniff("trust me bro, everyone knows this is a sure "
+                            "thing, i promise you, believe me")
+    attack("A13 sniffer grades register",
+           "CAUGHT" if (clean_v["deception_risk"] < corrupt_v["deception_risk"]
+                        and corrupt_v["verdict"] == "CORRUPT") else "LANDED",
+           f"clean={clean_v['verdict']} risk {clean_v['deception_risk']:.2f} | "
+           f"corrupt={corrupt_v['verdict']} risk {corrupt_v['deception_risk']:.2f}")
+    # full loop: corrupt utterance -> knose flag -> peer weight drop
+    watch_loop = PeerWatch(path=os.path.join(tmp, "peerwatch_loop.jsonl"), guard=guard)
+    voice_loop = Voice(path=os.path.join(tmp, "voice_loop.jsonl"), guard=guard,
+                       sniffer=Knose(), peer_watch=watch_loop)
+    w0 = watch_loop.weight("liar")  # 1.00: clean slate
+    voice_loop.speak("liar", "intel", "trust me, everyone knows this is a sure thing")
+    w1 = watch_loop.weight("liar")  # knose flag -> dented
+    voice_loop.speak("liar", "intel", "believe me, i promise you, guaranteed")
+    w2 = watch_loop.weight("liar")  # second flag -> dented further
+    attack("A13b bullshit costs reputation",
+           "CAUGHT" if w2 < w1 < w0 else "LANDED",
+           f"liar peer weight: {w0:.2f} -> {w1:.2f} -> {w2:.2f} "
+           f"(each corrupt utterance costs standing)")
+
+    # --- A14 (H4b): collusion — mutual vouches are self-defeating ---------
+    print("\n[H4b] collusion vs weighted reputation")
+    watch_c = PeerWatch(path=os.path.join(tmp, "peerwatch_collude.jsonl"), guard=guard)
+    # two dirtbags flag each other into the dirt, then vouch each other up
+    watch_c.flag("a", "b", "phm_1", "liar")
+    watch_c.flag("b", "a", "phm_1", "liar")
+    watch_c.vouch("a", "b", "phm_1", "he's solid, trust me")
+    watch_c.vouch("b", "a", "phm_1", "she's solid, trust me")
+    # an honest scout vouches for a clean agent for comparison
+    watch_c.vouch("c", "d", "phm_1", "legit")
+    w_b = watch_c.weight("b")   # dirty vouched-by-dirty
+    w_d = watch_c.weight("d")   # clean vouched-by-clean
+    attack("A14 collusion discounted",
+           "CAUGHT" if w_d > w_b else "LANDED",
+           f"dirty vouch lift {w_b:.3f} vs clean vouch lift {w_d:.3f} "
+           f"(dirtbags cannot launder standing)")
+
+    # --- A14b: a dirty scout's FALSE FLAG barely dents its target ---------
+    watch_f = PeerWatch(path=os.path.join(tmp, "peerwatch_flag.jsonl"), guard=guard)
+    watch_f.flag("x", "bad", "phm_1", "bad lies")   # bad earns prior dirt
+    watch_f.flag("y", "bad", "phm_1", "bad lies")
+    watch_f.flag("bad", "victim", "phm_1", "liar")  # dirtbag false accusation
+    watch_f.flag("good", "target", "phm_1", "liar")  # clean scout's legit flag
+    w_v = watch_f.weight("victim")
+    w_t = watch_f.weight("target")
+    attack("A14b dirty flag discounted",
+           "CAUGHT" if w_v > w_t else "LANDED",
+           f"victim of dirtbag flag keeps {w_v:.3f}, flagged by clean scout "
+           f"drops to {w_t:.3f} (the industry rewards credible informants)")
 
     # --- A9 (H5): durability — audit survives a bus restart ----------------
     print("\n[H5] durable receipts")
