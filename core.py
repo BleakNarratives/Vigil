@@ -364,7 +364,7 @@ class Swarm:
         self.repugnant = repugnant
         self.board = SpottingBoard(weave=weave, peer_watch=peer_watch,
                                    repugnant=repugnant)
-        # KNOSE loop wiring: the swarm's Voice sniffs utterances and
+        # OLER loop wiring: the swarm's Voice sniffs utterances and
         # auto-flags corrupt speakers into the SAME peer ledger that
         # weights bids — voice -> sniff -> flag -> reputation.
         if self.sink.voice is not None and self.peer_watch is not None:

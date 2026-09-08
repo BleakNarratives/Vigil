@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
-vigil knose.py — KNOSE: The Bullshit Sniffer.
+vigil oler.py — OLER (operator-renamed 2026-09-08, from Knose): the
+bullshit sniffer — Spanish *oler*, to smell. The scout LEERS the ledger
+and OLERS the register, both in the tongue the operator claimed from his
+grandfather. Same detector, better name.
 
 TruthSleuth's Ba declares the intent (rhetoric analysis, deception
 patterns, deception_risk_score 0.0-1.0) and KNOSE is the bullshit sniffer.
@@ -87,12 +90,12 @@ def _clamp(value: float) -> float:
     return max(0.0, min(1.0, value))
 
 
-class Knose:
+class Oler:
     """Deterministic anti-register scanner. Zero dependencies.
 
     Usage:
-        knose = Knose()
-        verdict = knose.sniff("trust me, everyone knows this works")
+        oler = Oler()
+        verdict = oler.sniff("trust me, everyone knows this works")
         # verdict = {"deception_risk": 0.65, "patterns": [...], "evidence": [...]}
     """
 
@@ -145,4 +148,9 @@ class Knose:
         return self.sniff(text)["deception_risk"] >= self.threshold
 
 
-__all__ = ["Knose", "DEFAULT_THRESHOLD", "MAX_RISK"]
+__all__ = ["Oler", "Knose", "DEFAULT_THRESHOLD", "MAX_RISK"]
+
+# Legacy alias (renamed 2026-09-08): the operator flagged the old name as
+# terrible, and it was. Knose still imports for backward compatibility;
+# Oler is canonical. LEER the ledger, OLER the register.
+Knose = Oler

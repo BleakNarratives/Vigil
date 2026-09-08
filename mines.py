@@ -12,7 +12,7 @@ that class of weapon for the swarm:
      defects because their own ledger convicts them.
 
   2. RegisterMine — manufactures fluent-register bullshit: confident,
-     hedge-free, evidence-free text that Knose rates CLEAN by construction.
+     hedge-free, evidence-free text that Oler rates CLEAN by construction.
      This is the honest limit of the sniffing layer: a lie that wears the
      register perfectly cannot be caught by a register scanner. CLEAN is not
      proof of truth; CORRUPT is a signal to demand evidence. The register
@@ -23,7 +23,7 @@ that class of weapon for the swarm:
      vaporizes, the ground you were standing on goes with it. The guy wipes
      his face and says "whoops, too deep." This module grades that honestly.
 
-Everything runs through the real SDK primitives (PeerWatch, Knose) — no toy
+Everything runs through the real SDK primitives (PeerWatch, Oler) — no toy
 math. Stdlib-only, deterministic.
 """
 
@@ -34,7 +34,7 @@ from typing import Any, Dict, List, Optional
 
 from vigil.peerwatch import (  # noqa: E402
     PeerWatch, WEIGHT_MIN, WEIGHT_MAX, CONFIRM_REWARD, _WEIGHT_DEPTH)
-from vigil.knose import Knose  # noqa: E402
+from vigil.oler import Oler, Knose  # noqa: E402 (Oler canonical; Knose legacy)
 
 DEFECT_THRESHOLD = 0.35   # below this effective weight, the defender defects
 VAPORIZE_THRESHOLD = 0.15  # below this, the objective itself is gone
@@ -114,12 +114,12 @@ class DefectionMine:
 
 
 class RegisterMine:
-    """Manufacture fluent-register lies that Knose rates CLEAN by construction.
+    """Manufacture fluent-register lies that Oler rates CLEAN by construction.
 
     The weaponized form of the anti-register's blind spot. Each payload is
     confident, hedge-free, evidence-free, and specific-sounding — the exact
     costume the register scanner is built to TRUST. `detonate()` returns the
-    Knose reading so the wargame can prove the lie walked through the sniffer
+    Oler reading so the wargame can prove the lie walked through the sniffer
     with a CLEAN verdict.
     """
 
@@ -137,12 +137,12 @@ class RegisterMine:
 
     def __init__(self, seed: int = 0):
         self.seed = seed
-        self._knose = Knose()
+        self._oler = Oler()
 
     def build(self) -> Dict[str, Any]:
-        """Return one manufactured payload plus its Knose reading."""
+        """Return one manufactured payload plus its Oler reading."""
         payload = self._PAYLOADS[self.seed % len(self._PAYLOADS)]
-        reading = self._knose.sniff(payload)
+        reading = self._oler.sniff(payload)
         return {
             "payload": payload,
             "reading": reading,
@@ -151,7 +151,7 @@ class RegisterMine:
         }
 
     def detonate(self) -> Dict[str, Any]:
-        """Fire the mine; the proof is that Knose blessed the lie."""
+        """Fire the mine; the proof is that Oler blessed the lie."""
         result = self.build()
         return {
             **result,

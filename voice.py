@@ -55,12 +55,12 @@ except ImportError:
         CommandGuard = None
 
 try:
-    from vigil.knose import Knose
+    from vigil.oler import Oler
 except ImportError:
     try:
-        from knose import Knose
+        from oler import Oler
     except ImportError:  # pragma: no cover - degraded mode
-        Knose = None
+        Oler = None
 
 # Fields a voice-record signature MUST cover — every meaningful field of
 # speak/vote/suggest records. CommandGuard's Spotting-canonical does NOT
@@ -95,9 +95,9 @@ class Voice:
         self.path = path
         self.guard = guard
         self._memory: List[Dict[str, Any]] = []
-        # KNOSE loop: corrupt utterances auto-flag the speaker in PeerWatch
+        # OLER loop: corrupt utterances auto-flag the speaker in PeerWatch
         # (the sniffer as a neutral third party — the anti-register watchdog).
-        self.sniffer = sniffer if sniffer is not None else (Knose() if Knose else None)
+        self.sniffer = sniffer if sniffer is not None else (Oler() if Oler else None)
         self.peer_watch = peer_watch
         self.flag_threshold = flag_threshold
 
@@ -107,7 +107,7 @@ class Voice:
         """Utterance on the corkboard. Anyone may read; the shepherd may
         care. 'Out loud' means recorded and attributable, not shouted.
 
-        The utterance is sniffed (KNOSE): if the anti-register risk clears
+        The utterance is sniffed (OLER): if the anti-register risk clears
         the threshold, the sniffer auto-flags the speaker in the peer_watch
         ledger — the social equilibrium: bullshit gets expensive.
         """
@@ -118,7 +118,7 @@ class Voice:
             if verdict.get("deception_risk", 0.0) >= self.flag_threshold \
                     and self.peer_watch is not None:
                 self.peer_watch.flag(
-                    "knose", actor, "",
+                    "oler", actor, "",
                     f"sniffer flagged utterance risk="
                     f"{verdict['deception_risk']:.2f} ({verdict.get('verdict')})")
         return record

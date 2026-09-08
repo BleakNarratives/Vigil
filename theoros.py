@@ -14,7 +14,7 @@ The observer's discipline (the brown-hat triad, applied):
                          never from confidence.
     * WALK THE CHAIN   — the report cites what it walked: receipts,
                          signatures, flags, votes.
-    * SMELL THE REGISTER — the Knose sweep is part of every observation.
+    * SMELL THE REGISTER — the Oler sweep is part of every observation.
 
 Theoros does not judge intent. It reports what the swarm's own signed
 records say, which is the only ground truth available.
@@ -22,7 +22,7 @@ records say, which is the only ground truth available.
 DNA_TAG
 ORIGIN: BleakNarratives/sdk
 PILLAR: swarm-coordination
-DEPS: dataclasses,datetime,typing,sdk.fabrication,sdk.knose
+DEPS: dataclasses,datetime,typing,vigil.fabrication,vigil.oler
 ROLE: read-only observer; the monitoring layer's face
 AUTHOR: Bleak
 SESSION: 2026-09-08
@@ -42,12 +42,12 @@ except ImportError:
         FabricationDetector = None
 
 try:
-    from vigil.knose import Knose
+    from vigil.oler import Oler
 except ImportError:
     try:
-        from knose import Knose
+        from oler import Oler
     except ImportError:
-        Knose = None
+        Oler = None
 
 try:
     from vigil.integrity import CommandGuard
@@ -136,7 +136,7 @@ class Theoros:
         self.receipts = receipts
         self.peer_watch = peer_watch
         self.voice = voice
-        self.sniffer = sniffer if sniffer is not None else (Knose() if Knose else None)
+        self.sniffer = sniffer if sniffer is not None else (Oler() if Oler else None)
         self.keyring = keyring  # unused today; the charge's custody record
         self.repugnant = repugnant  # the 4th register: emotional state
 
@@ -187,7 +187,7 @@ class Theoros:
             agents |= {r.get("actor") for r in self.peer_watch.history()}
             reading.standings = sorted(
                 ({"agent": a, "weight": self.peer_watch.weight(a)} for a in agents
-                 if a and a != "knose"),
+                 if a and a != "oler"),
                 key=lambda s: s["weight"], reverse=True)
 
         return reading

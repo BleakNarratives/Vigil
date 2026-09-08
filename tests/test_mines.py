@@ -4,7 +4,7 @@ Tests for Culture-class effect weapons (vigil/mines.py).
 Covers:
   1. DefectionMine.plan() — computed from the REAL PeerWatch market math
      (same constants, same recursive weighting), not an approximation
-  2. RegisterMine — manufactured intel reads CLEAN to Knose (the honest
+  2. RegisterMine — manufactured intel reads CLEAN to Oler (the honest
      blind spot, weaponized)
   3. too_deep() — overreach grading: CLEAN / OVERKILL / TOO_DEEP with cost
   4. deploy_mine() — full fire: real signed flags on the real ledger,
@@ -16,7 +16,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from vigil.knose import Knose
+from vigil.oler import Oler
 from vigil.peerwatch import PeerWatch, CONFIRM_REWARD
 from vigil.mines import (DefectionMine, RegisterMine, too_deep, deploy_mine,
                          DEFECT_THRESHOLD, VAPORIZE_THRESHOLD)
@@ -47,7 +47,7 @@ class MinesTests(unittest.TestCase):
         self.assertLess(post, pre)
         self.assertEqual(plan["defected"], post < DEFECT_THRESHOLD)
 
-    def test_register_mine_walks_through_knose_clean(self):
+    def test_register_mine_walks_through_oler_clean(self):
         rm = RegisterMine(seed=2)
         result = rm.detonate()
         self.assertTrue(result["manufactured"])

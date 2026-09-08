@@ -9,7 +9,7 @@ whole engagement — every move signed, ledgered, and auditable.
 
 The point of the harness is the LOOP, not the simulation quality: spot ->
 bid -> claim -> execute -> defend -> observe, all through the SDK's real
-primitives (Swarm, SpottingBoard, Voice, PeerWatch, Knose, Theoros). The
+primitives (Swarm, SpottingBoard, Voice, PeerWatch, Oler, Theoros). The
 scanner is deterministic and stdlib-only; swap it for Code-City's real
 attack modules by replacing `scan()`.
 

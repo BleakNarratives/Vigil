@@ -23,7 +23,7 @@ from vigil.fabrication import FabricationDetector, FabricationReport
 from vigil.keyring import AgentKeyring, derive_agent_key, module_dna_fingerprint
 from vigil.peerwatch import PeerWatch
 from vigil.voice import Voice
-from vigil.knose import Knose
+from vigil.oler import Oler, Knose
 from vigil.theoros import Theoros
 from vigil.keyring import load_unit_secret
 from vigil import wargame as wargame_mod
@@ -622,13 +622,13 @@ class TestVoice(unittest.TestCase):
         self.assertEqual(len(scout.voice.suggestions()), 1)
 
 
-class TestKnose(unittest.TestCase):
+class TestOler(unittest.TestCase):
 
     def test_sniffer_grades_register(self):
-        knose = Knose()
-        clean = knose.sniff("target confirmed at grid 44.91, north door "
+        oler = Oler()
+        clean = oler.sniff("target confirmed at grid 44.91, north door "
                             "unguarded as of 14:30 UTC")
-        corrupt = knose.sniff("trust me bro, everyone knows this is a sure "
+        corrupt = oler.sniff("trust me bro, everyone knows this is a sure "
                               "thing, i promise you")
         self.assertEqual(clean["verdict"], "CLEAN")
         self.assertEqual(corrupt["verdict"], "CORRUPT")
@@ -637,20 +637,20 @@ class TestKnose(unittest.TestCase):
         self.assertTrue(corrupt["evidence"])
 
     def test_sniff_returns_structured_result(self):
-        knose = Knose()
-        v = knose.sniff("probably, i think, trust me")
+        oler = Oler()
+        v = oler.sniff("probably, i think, trust me")
         for key in ("deception_risk", "patterns", "evidence", "verdict"):
             self.assertIn(key, v)
         self.assertTrue(0.0 <= v["deception_risk"] <= 1.0)
 
     def test_empty_text_clean(self):
-        knose = Knose()
-        self.assertEqual(knose.sniff("")["deception_risk"], 0.0)
-        self.assertEqual(knose.sniff(None)["verdict"], "CLEAN")
+        oler = Oler()
+        self.assertEqual(oler.sniff("")["deception_risk"], 0.0)
+        self.assertEqual(oler.sniff(None)["verdict"], "CLEAN")
 
     def test_voice_auto_flags_corrupt_speaker(self):
         watch = PeerWatch()
-        voice = Voice(sniffer=Knose(), peer_watch=watch)
+        voice = Voice(sniffer=Oler(), peer_watch=watch)
         voice.speak("liar", "intel", "trust me, everyone knows it")
         self.assertLess(watch.weight("liar"), 1.0)  # reputation dented
         # clean speaker untouched
@@ -664,7 +664,7 @@ class TestKnose(unittest.TestCase):
         scout = swarm.add_scout("liar")
         scout.speak("intel", "trust me, everyone knows this is a sure thing")
         self.assertLess(watch.weight("liar"), 1.0)
-        flags = [r for r in watch.history("liar") if r.get("actor") == "knose"]
+        flags = [r for r in watch.history("liar") if r.get("actor") == "oler"]
         self.assertEqual(len(flags), 1)
 
 

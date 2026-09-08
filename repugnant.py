@@ -6,7 +6,7 @@ behavior monitor — emotional state inference, taunt effectiveness, adaptive
 difficulty). Its vocabulary was the right one; its scope was the arena. This
 module grafts that vocabulary onto the swarm as a REGISTER — a signed,
 append-only stream of emotional snapshots, read by Theoros alongside
-PeerWatch (behavioral) and Knose (bullshit).
+PeerWatch (behavioral) and Oler (bullshit).
 
 The law of the fourth register (operator-spec, 2026-09-08): watch the
 powerful, not the street. A lie from a nobody barely dents (PeerWatch's
@@ -22,7 +22,7 @@ subject's peer standing at capture time — so a reading can answer: who holds
 weight, and what state are they in?
 
 Invariant: REPUGNANT RECORDS, IT DOES NOT ACCUSE. A TILTED reading is a
-signal to demand evidence, never a verdict of guilt — same as Knose's CLEAN
+signal to demand evidence, never a verdict of guilt — same as Oler's CLEAN
 != true, CORRUPT is a signal, not a conviction.
 """
 

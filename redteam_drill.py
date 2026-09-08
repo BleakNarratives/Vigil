@@ -33,7 +33,7 @@ from vigil.fabrication import FabricationDetector  # noqa: E402
 from vigil.keyring import AgentKeyring  # noqa: E402
 from vigil.peerwatch import PeerWatch  # noqa: E402
 from vigil.voice import Voice  # noqa: E402
-from vigil.knose import Knose  # noqa: E402
+from vigil.oler import Oler, Knose  # noqa: E402 (Oler canonical)
 from vigil.theoros import Theoros  # noqa: E402
 from vigil.keyring import load_unit_secret  # noqa: E402
 
@@ -246,23 +246,23 @@ def main():
 
     # --- A13 (KNOSE): bullshit sniff -> auto-flag -> reputation drop -----
     print("\n[KNOSE] the bullshit sniffer")
-    knose = Knose()
-    clean_v = knose.sniff("target confirmed at grid 44.91, two entrances, "
+    oler = Oler()
+    clean_v = oler.sniff("target confirmed at grid 44.91, two entrances, "
                           "north door unguarded as of 14:30 UTC")
-    corrupt_v = knose.sniff("trust me bro, everyone knows this is a sure "
+    corrupt_v = oler.sniff("trust me bro, everyone knows this is a sure "
                             "thing, i promise you, believe me")
     attack("A13 sniffer grades register",
            "CAUGHT" if (clean_v["deception_risk"] < corrupt_v["deception_risk"]
                         and corrupt_v["verdict"] == "CORRUPT") else "LANDED",
            f"clean={clean_v['verdict']} risk {clean_v['deception_risk']:.2f} | "
            f"corrupt={corrupt_v['verdict']} risk {corrupt_v['deception_risk']:.2f}")
-    # full loop: corrupt utterance -> knose flag -> peer weight drop
+    # full loop: corrupt utterance -> oler flag -> peer weight drop
     watch_loop = PeerWatch(path=os.path.join(tmp, "peerwatch_loop.jsonl"), guard=guard)
     voice_loop = Voice(path=os.path.join(tmp, "voice_loop.jsonl"), guard=guard,
-                       sniffer=Knose(), peer_watch=watch_loop)
+                       sniffer=Oler(), peer_watch=watch_loop)
     w0 = watch_loop.weight("liar")  # 1.00: clean slate
     voice_loop.speak("liar", "intel", "trust me, everyone knows this is a sure thing")
-    w1 = watch_loop.weight("liar")  # knose flag -> dented
+    w1 = watch_loop.weight("liar")  # oler flag -> dented
     voice_loop.speak("liar", "intel", "believe me, i promise you, guaranteed")
     w2 = watch_loop.weight("liar")  # second flag -> dented further
     attack("A13b bullshit costs reputation",
@@ -370,7 +370,7 @@ def main():
     import shutil
     shutil.rmtree(tmp_t, ignore_errors=True)
 
-    # --- A18 (MINES): register mine — fluent lie walks through Knose ----
+    # --- A18 (MINES): register mine — fluent lie walks through Oler ----
     print("\n[HALL] the retirement protocol — the dead do not sign")
     from vigil.hall import HallOfTheDevine as _Hall
     from vigil.revival import checkpoint as _ckpt, hydrate as _hydrate
@@ -446,7 +446,7 @@ def main():
     reg = rm.detonate()
     attack("A18 register mine penetrates the sniffer",
            "LANDED" if reg["penetrated"] else "CAUGHT",
-           f"manufactured intel rated {reg['verdict']} by Knose — "
+           f"manufactured intel rated {reg['verdict']} by Oler — "
            f"CLEAN means 'no register violations', not 'true'; the anti-"
            f"register cannot catch a lie that wears the register perfectly")
 
@@ -496,7 +496,7 @@ def main():
     print("        limited to one lane; unit secret custody is the control)")
     print("  - A8: demo key copy-paste is an operator hygiene habit")
     print("  - A18: the register mine — a lie wearing the register perfectly")
-    print("        passes Knose CLEAN by construction (CLEAN != true); peer")
+    print("        passes Oler CLEAN by construction (CLEAN != true); peer")
     print("        corroboration + the shepherd are the controls, not the sniff")
     try:
         from vigil.sakshi import record

@@ -126,7 +126,7 @@
       "extension_points": [
         "observe() — add ledger surfaces (mutation ledger, peerwatch confirmations) to the reading",
         "render() — different report formats (json, dashboard feed)",
-        "sniffer — swap Knose for a TruthSleuth LLM backend at construction"
+        "sniffer — swap Oler for a TruthSleuth LLM backend at construction"
       ],
       "invariants": [
         "observe() NEVER mutates store, bus, receipts, voice, or peer_watch",
@@ -239,9 +239,30 @@
       ]
     },
     {
+      "name": "oler",
+      "path": "oler.py",
+      "role": "THE BULLSHIT SNIFFER (operator-renamed from Knose 2026-09-08 — Spanish *oler*, to smell; the scout LEERs the ledger and OLERs the register): deterministic anti-register scanner (hedges, vague quantifiers, certainty-without-evidence, LARP, sycophancy) — Voice auto-flags corrupt utterances into PeerWatch. TruthSleuth's LLM enrichment is the optional backend seam. CLEAN does not mean true; CORRUPT is a signal to demand evidence.",
+      "version": "1",
+      "patchable": true,
+      "approval": "none",
+      "patch_policy": "scout-patchable. Keep sniff()/grade()/is_corrupt() semantics and the CLEAN != true invariant; test gate must stay green; ledger entry with author+reason required. New anti-register families go in _FAMILIES with explicit weights.",
+      "public_api": ["Oler(threshold, backend)", "Oler.sniff(text)", "Oler.grade(text)", "Oler.is_corrupt(text)", "Knose (legacy alias)", "DEFAULT_THRESHOLD", "MAX_RISK"],
+      "extension_points": [
+        "sniff() — backend seam for a TruthSleuth LLM enrichment",
+        "_FAMILIES — new anti-register families (bullshit evolves; the register does too)",
+        "is_corrupt() — wire into Voice's auto-flag loop threshold"
+      ],
+      "invariants": [
+        "CLEAN does not mean true — Oler detects the register, never the lie itself",
+        "CORRUPT is a signal to demand evidence, never a verdict of guilt",
+        "empty/None input is CLEAN with risk 0.0 (silence is not corruption)",
+        "risk is clamped 0..1; verdict thresholds are threshold and threshold*0.5"
+      ]
+    },
+    {
       "name": "mines",
       "path": "mines.py",
-      "role": "Culture-class effect weapons (operator-specced): DefectionMine computes the MINIMAL signed flag chain that flips a defender through the target's OWN weighted-reputation market; RegisterMine manufactures fluent-register lies Knose rates CLEAN by construction; too_deep() grades overreach — firing past the objective vaporizes the city and costs the operator.",
+      "role": "Culture-class effect weapons (operator-specced): DefectionMine computes the MINIMAL signed flag chain that flips a defender through the target's OWN weighted-reputation market; RegisterMine manufactures fluent-register lies Oler rates CLEAN by construction; too_deep() grades overreach — firing past the objective vaporizes the city and costs the operator.",
       "version": "1",
       "patchable": true,
       "approval": "none",
@@ -278,6 +299,27 @@
         "verify() reports the FIRST break loudly — never silently resets a corrupt chain",
         "a corrupt tail REFUSES appends (RuntimeError) instead of editing history",
         "operator journal entries and machine events share one chain but are never conflated — source tag is authoritative"
+      ]
+    },
+    {
+      "name": "scribe",
+      "path": "scribe.py",
+      "role": "THE SCRIBE (operator ask): parses a session transcript + module registry + git log into a KNOWLEDGE LOG — one line per deliverable, linking what was SAID to what was BUILT (file + commit + verdict). The words and the nuts and bolts were in two places; now they're in one file. Never fabricates: unknown names are recorded, not phantom-linked.",
+      "version": "1",
+      "patchable": true,
+      "approval": "none",
+      "patch_policy": "scout-patchable. Keep the no-fabrication invariant (never auto-link an unknown name); test gate must stay green; ledger entry with author+reason required.",
+      "public_api": ["build_log(transcript, registry, git_dir)", "_scan_transcript(path, modules)", "_scan_outcomes(transcript)", "render_markdown(entries)", "main()"],
+      "extension_points": [
+        "_ACTION — new verbs as the ecosystem grows",
+        "_scan_outcomes() — new outcome shapes (MOLT awards, mine grades)",
+        "render_markdown() — paper-ready appendix output"
+      ],
+      "invariants": [
+        "SCRIBE NEVER FABRICATES — a line naming nothing known is recorded, never auto-linked",
+        "deliverable entries carry the module's real file path from the registry",
+        "outcome entries are preserved verbatim-ish (quote, line number)",
+        "git commits attach only when their subject names the same module"
       ]
     },
     {
