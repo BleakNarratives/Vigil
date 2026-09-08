@@ -35,6 +35,7 @@ Usage:
 import os
 import sys
 import time
+from typing import Any
 
 sys.path.insert(0, os.path.expanduser("~"))
 sys.path.insert(0, os.path.expanduser("~/vigil"))
@@ -53,17 +54,28 @@ def _default_sakshi_path() -> str:
 
 
 def run_engagement(target: str, rounds: int = 3, journal: bool = True,
-                   uc: Undercurrent = None) -> dict:
+                   uc: Undercurrent = None,
+                   zgents: Any = None) -> dict:
     """Run the full three-way engagement and return everything.
 
     Returns the wargame result enriched with the brown verdict, the
-    undercurrent absorption report, and the sakshi journal result.
+    undercurrent absorption report, and the sakshi journal result. When
+    a ZgentRegistry is passed, every executor is entered on the roll and
+    its standing refreshed — the alphabet becomes personal mid-battle.
     """
     game = ScoutWargame(target, rounds=rounds)
     result = game.play()
 
     if uc is None:
         uc = Undercurrent(_default_uc_path())
+    if zgents is None:
+        from vigil.zgents import ZgentRegistry
+        zgents = ZgentRegistry(
+            os.path.expanduser("~/.vigil/zgents.jsonl"),
+            undercurrent=uc)
+
+    # -- the roll: every executor is a named letter -------------------------
+    roll = _update_roll(result, zgents)
 
     # -- the swarm KNOWS: verified learnings into the current ---------------
     absorption = _absorb_learnings(result, uc)
@@ -74,8 +86,29 @@ def run_engagement(target: str, rounds: int = 3, journal: bool = True,
         journaled = _journal(result, absorption)
 
     result["undercurrent"] = absorption
+    result["zgents"] = roll
     result["sakshi"] = journaled
     return result
+
+
+def _update_roll(result: dict, zgents: Any) -> dict:
+    """Enter every executor on the roll and record what they did. The
+    letters get names, history, and the current's inherited knowledge."""
+    from vigil.undercurrent import MONKEY_THRESHOLD
+    executors = {ex.get("executor") for ex in result.get("execution_log", [])
+                 if ex.get("executor")}
+    for agent in sorted(executors):
+        zgents.register(agent, role="arena scout")
+        for ex in result.get("execution_log", []):
+            if ex.get("executor") == agent and not ex.get("blocked"):
+                zgents.act(agent, f"executed {ex.get('kind')} at "
+                                  f"{ex.get('path')}")
+    # every letter born knowing whatever the current has inherited
+    inherited = [k["id"] for k in zgents.undercurrent.knowledge()] \
+        if zgents.undercurrent is not None else []
+    for agent in sorted(executors):
+        zgents.born_with(agent, inherited)
+    return {"registered": len(executors), "inherited_claims": len(inherited)}
 
 
 def _absorb_learnings(result: dict, uc: Undercurrent) -> dict:

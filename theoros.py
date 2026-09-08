@@ -76,6 +76,8 @@ class TheorosReading:
     receipt_count: int = 0
     unsettled: List[Dict[str, Any]] = field(default_factory=list)
     issues: List[str] = field(default_factory=list)
+    # the 5th surface: the swarm's own liveness — the Undercurrent shiver
+    kinship: Optional[Dict[str, Any]] = None
 
     @property
     def consistent(self) -> bool:
@@ -117,6 +119,12 @@ class TheorosReading:
         lines.append(f"  suggestion box: {self.suggestions_open} open")
         lines.append(f"  receipt chain: {self.receipt_count} durable="
                      f"{self.receipts_durable}")
+        if self.kinship is not None:
+            k = self.kinship
+            lines.append(
+                f"  kinship: pool={k.get('pool')} inherited={k.get('inherited')} "
+                f"confirmations={k.get('confirmations')} "
+                f"afloat={k.get('afloat')} — the swarm knows itself")
         for issue in self.issues:
             lines.append(f"  issue: {issue}")
         return "\n".join(lines)
@@ -129,7 +137,8 @@ class Theoros:
                  guard: Optional[Any] = None, receipts: Any = None,
                  peer_watch: Any = None, voice: Any = None,
                  sniffer: Any = None, keyring: Any = None,
-                 repugnant: Any = None, extra_stores: Any = None):
+                 repugnant: Any = None, extra_stores: Any = None,
+                 undercurrent: Any = None):
         self.store = store
         self.bus = bus
         self.guard = guard
@@ -140,6 +149,7 @@ class Theoros:
         self.keyring = keyring  # unused today; the charge's custody record
         self.repugnant = repugnant  # the 4th register: emotional state
         self.extra_stores = extra_stores  # other stores on the shared bus
+        self.undercurrent = undercurrent  # the 5th surface: the swarm's own liveness
 
     def observe(self, agent_id: Optional[str] = None) -> TheorosReading:
         """One pass over every ledger. Read-only — this function mutates
@@ -191,6 +201,11 @@ class Theoros:
                 ({"agent": a, "weight": self.peer_watch.weight(a)} for a in agents
                  if a and a != "oler"),
                 key=lambda s: s["weight"], reverse=True)
+
+        # 5. the 5th surface: the swarm's own liveness — the Undercurrent
+        # shiver. The observer reports on the swarm knowing itself.
+        if self.undercurrent is not None:
+            reading.kinship = self.undercurrent.kinship()
 
         return reading
 

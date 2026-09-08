@@ -50,7 +50,8 @@ def _trail_hash(records: List[Dict[str, Any]]) -> str:
 
 
 def checkpoint(scout: Any, *, trail: Optional[List[Dict[str, Any]]] = None,
-               out: Optional[Path] = None) -> Path:
+               out: Optional[Path] = None,
+               undercurrent: Any = None) -> Path:
     """Freeze a scout's state into a portable QRD file.
 
     Captures what the scout IS, not just what it did: latent weights
@@ -78,6 +79,13 @@ def checkpoint(scout: Any, *, trail: Optional[List[Dict[str, Any]]] = None,
         "last_words": None,
         "trail_hash": _trail_hash(trail or []),
         "trail_records": len(trail or []),
+        # the species memory the scout was born knowing — inherited
+        # knowledge from the Undercurrent, frozen at checkpoint time so
+        # the QRD carries the full self: weights, feelings, intent, AND
+        # what the current taught it.
+        "inherited_claims": (
+            [k["id"] for k in undercurrent.knowledge()]
+            if undercurrent is not None else []),
     }
     # last words, if the sink has a voice lane
     voice = getattr(sink, "voice", None) if sink is not None else None
@@ -96,7 +104,8 @@ def checkpoint(scout: Any, *, trail: Optional[List[Dict[str, Any]]] = None,
 
 def hydrate(keyring: AgentKeyring, qrd: Path, *, new_id: Optional[str] = None,
             sink: Optional[Any] = None, board: Optional[Any] = None,
-            weave: Optional[Any] = None) -> Any:
+            weave: Optional[Any] = None,
+            undercurrent: Any = None) -> Any:
     """Rebuild a NEW agent from a checkpoint.
 
     Returns a Scout whose identity is `{old_id}~rev2` (or `new_id` if
@@ -104,7 +113,11 @@ def hydrate(keyring: AgentKeyring, qrd: Path, *, new_id: Optional[str] = None,
     FIRST voice record declares the lineage out loud. The new agent carries
     the record; it is not the dead.
 
-    If no sink/board are provided, builds a fresh ephemeral sink + board.
+    If a live Undercurrent is passed, the revived scout is ALSO born
+    knowing the current's inherited pool — the species memory the swarm
+    accumulated since the checkpoint was frozen (capillary ingestion:
+    water seeks level, nobody teaches). If no sink/board are provided,
+    builds a fresh ephemeral sink + board.
     """
     from vigil.core import PheromoneSink, Scout, SpottingBoard
     if not qrd.exists():
@@ -124,12 +137,22 @@ def hydrate(keyring: AgentKeyring, qrd: Path, *, new_id: Optional[str] = None,
         board = SpottingBoard(weave=weave,
                               peer_watch=getattr(sink, "peer_watch", None))
     latent = dict(state.get("latent", {}))
+    # the species memory: what the checkpoint froze PLUS what the current
+    # accumulated since — the revived scout is born knowing both
+    inherited = list(state.get("inherited_claims", []))
+    if undercurrent is not None:
+        inherited += [k["id"] for k in undercurrent.knowledge()]
+    inherited = sorted(set(inherited))
+    latent["_inherited"] = inherited
     scout = Scout(new_id, sink, weave=weave, board=board, latent=latent)
     # THE TRUTH BOUNDARY — declared in the ledger, first words:
     declaration = (
         f"I am a new agent ({new_id}). I carry {old_id}'s record "
         f"(trail {state.get('trail_hash', '?')[:12]}..., "
         f"{state.get('trail_records', 0)} records). I am not them.")
+    if inherited:
+        declaration += (f" I was born knowing {len(inherited)} claims "
+                        f"from the current.")
     try:
         scout.speak("lineage", declaration)
     except Exception:

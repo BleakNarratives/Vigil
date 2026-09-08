@@ -492,6 +492,20 @@
       "role": "THE FULL ENGAGEMENT - red vs blue with Brown dropping, journaled to Sakshi, verified learnings absorbed into the Undercurrent",
       "patch_policy": "undercurrent: append-only ledger; engage: orchestrates, never edits",
       "mutates": false
+    },
+    {
+      "name": "bind",
+      "path": "bind.py",
+      "role": "THE BIND - Zgent attribution geometry: any unit commits at most 50% of its self outward; re-extension folds in half per hop (effective claims decay 0.5^k); no coalition can ever hold a majority - minority by construction",
+      "patch_policy": "append-only ledgers; registry read-mostly, entries never rewritten",
+      "mutates": false
+    },
+    {
+      "name": "zgents",
+      "path": "zgents.py",
+      "role": "THE ZGENT REGISTRY - named letters with standing in the current: name, history, register, inherited knowledge; lineage declares the truth boundary; revival hydrates revived scouts born knowing the species memory",
+      "patch_policy": "append-only ledgers; registry read-mostly, entries never rewritten",
+      "mutates": false
     }
   ]
 }
