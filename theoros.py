@@ -74,6 +74,7 @@ class TheorosReading:
     suggestions_open: int = 0
     receipts_durable: bool = False
     receipt_count: int = 0
+    unsettled: List[Dict[str, Any]] = field(default_factory=list)
     issues: List[str] = field(default_factory=list)
 
     @property
@@ -102,6 +103,10 @@ class TheorosReading:
             lines.append(f"  corrupt register: {sp.get('actor')} risk "
                          f"{sp.get('deception_risk', 0):.2f} — "
                          f"\"{str(sp.get('message'))[:60]}\"")
+        for u in self.unsettled:
+            lines.append(f"  unsettled: {u.get('subject')} "
+                         f"{u.get('state')} (discount {u.get('discount', 1):.2f}) "
+                         f"— demand evidence, don't convict")
         if self.standings:
             top = ", ".join(f"{s['agent']}={s['weight']:.2f}"
                             for s in self.standings[:3])
@@ -123,7 +128,8 @@ class Theoros:
     def __init__(self, store: Any = None, bus: Any = None,
                  guard: Optional[Any] = None, receipts: Any = None,
                  peer_watch: Any = None, voice: Any = None,
-                 sniffer: Any = None, keyring: Any = None):
+                 sniffer: Any = None, keyring: Any = None,
+                 repugnant: Any = None):
         self.store = store
         self.bus = bus
         self.guard = guard
@@ -132,6 +138,7 @@ class Theoros:
         self.voice = voice
         self.sniffer = sniffer if sniffer is not None else (Knose() if Knose else None)
         self.keyring = keyring  # unused today; the charge's custody record
+        self.repugnant = repugnant  # the 4th register: emotional state
 
     def observe(self, agent_id: Optional[str] = None) -> TheorosReading:
         """One pass over every ledger. Read-only — this function mutates
@@ -168,6 +175,11 @@ class Theoros:
             for motion in sorted(motions):
                 reading.motions.append(self.voice.tally(motion))
             reading.suggestions_open = len(self.voice.suggestions())
+
+        # 3.5 the 4th register: unsettled subjects (emotional state below
+        # the demand-evidence threshold — recorded, never accused)
+        if self.repugnant is not None:
+            reading.unsettled = self.repugnant.unsettled()
 
         # 4. reputation standings
         if self.peer_watch is not None:

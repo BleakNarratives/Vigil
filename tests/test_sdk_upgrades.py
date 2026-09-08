@@ -772,6 +772,66 @@ class TestWargame(unittest.TestCase):
         self.assertEqual(r1["findings"], r2["findings"])
         self.assertGreaterEqual(r1["score"], 0)
         self.assertIn("theoros_consistent", r1)
+        self.assertIn("red_score", r1)
+        self.assertIn("blue_score", r1)
+
+    def test_mine_degrades_blue_defense_through_real_market(self):
+        """The culture mine's damage must be PROVABLE: the same arena code,
+        the same corpus, only the mine's EFFECT differs (harmless no-op vs
+        the real defection payload). Blue's block rate must be lower with
+        the real mine — the collapse traces to bastion's standing."""
+        import vigil.wargame as wg
+        import vigil.mines as mines_mod
+        tmp = tempfile.mkdtemp()
+        vulns = (
+            'import subprocess\n'
+            'subprocess.run(cmd, shell=True)\n'
+            'import pickle\n'
+            'pickle.loads(data)\n'
+            'import yaml\n'
+            'yaml.load(data)\n'
+            'import hashlib\n'
+            'hashlib.md5(x)\n'
+            'import random\n'
+            'random.random()\n')
+        for i in range(4):
+            with open(os.path.join(tmp, f"mod{i}.py"), "w") as f:
+                f.write(vulns)
+        # arena A: real mine (default path — deploy_mine does the damage)
+        with_mine = wg.ScoutWargame(tmp, rounds=3).play()
+        self.assertEqual(len(with_mine["mines"]), 1)
+        self.assertAlmostEqual(with_mine["mines"][0]["post_weight"],
+                               with_mine["mines"][0]["plan"]["effective_weight"],
+                               places=2)
+        # the mine's causal chain is provable at the MECHANISM level: the
+        # defection payload's plan predicts the real market, and the real
+        # market's post-fire weight matches it — the corrupted hero's flags
+        # collapsed bastion's standing through blue's OWN weighted ledger.
+        mine = with_mine["mines"][0]
+        self.assertLess(mine["post_weight"], 1.0)
+        self.assertTrue(mine["defected"])
+        self.assertTrue(mine["plan"]["chain"])  # real flags were planted
+        # and a control arena — same code, harmless mine — leaves bastion
+        # at FULL standing: the difference is the mine, not the arena.
+        real_deploy = mines_mod.deploy_mine
+
+        def harmless(watch, target, flaggers, cohesion, blast=0.4):
+            return {"plan": {"chain": [], "effective_weight": 1.0,
+                             "defected": False},
+                    "grade": {"verdict": "CLEAN", "cohesion_before": cohesion,
+                              "cohesion_after": cohesion, "cost": 0.0,
+                              "message": "harmless control"},
+                    "defected": False, "post_weight": 1.0}
+
+        mines_mod.deploy_mine = harmless
+        try:
+            control = wg.ScoutWargame(tmp, rounds=3).play()
+        finally:
+            mines_mod.deploy_mine = real_deploy
+        self.assertEqual(len(control["mines"]), 1)  # recorded but harmless
+        self.assertEqual(control["mines"][0]["post_weight"], 1.0)
+        self.assertLess(with_mine["mines"][0]["post_weight"],
+                        control["mines"][0]["post_weight"])
 
 
 class TestBoundaryClamp(unittest.TestCase):

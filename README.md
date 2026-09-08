@@ -18,6 +18,10 @@ The core substrate for swarm scouting agents to `spot`, `bid`, `claim`, and `rep
 | **Knose** | `vigil/knose.py` | THE BULLSHIT SNIFFER: deterministic anti-register scanner (hedges, vague quantifiers, certainty-without-evidence, LARP, sycophancy) — Voice auto-flags corrupt utterances into PeerWatch. TruthSleuth's LLM enrichment is the optional backend seam. |
 | **Mines** | `vigil/mines.py` | CULTURE-CLASS EFFECT WEAPONS (operator-specced): mines whose payload is an *argument*, not an explosion. DefectionMine computes the minimal signed flag chain that flips a defender through the target's OWN weighted-reputation market (plan predicts the real market to float precision); RegisterMine manufactures fluent-register lies Knose rates CLEAN by construction (a lie wearing the register perfectly cannot be caught by a register scanner); too_deep() grades overreach — fire past the objective and the city vaporizes, cost to the operator. |
 | **Sakshi** | `vigil/sakshi.py` | THE SILENT WITNESS (operator-named): append-only, sha256-chained observation stream for the white-paper corpus — machine events and operator journal entries in ONE chain, tagged by source, never conflated. Records everything, says nothing. CLI: `python3 vigil/sakshi.py journal "..." --author mike`. |
+| **Repugnant** | `vigil/repugnant.py` | THE 4TH REGISTER (operator-spec): the emotional register — signed, append-only snapshots (CONFIDENT..TILTED..BURNT_OUT). Watch the powerful, not the street: a tilted hero's bid pays a state discount through the real SpottingBoard; Theoros surfaces unsettled subjects as "demand evidence, don't convict". Grafted from the Code-City Repugnant bridge vocabulary. |
+| **Hall** | `vigil/hall.py` | THE HALL OF THE DEVINE (operator-named): the retirement protocol. Decommission the gun (RoboCop's law — the dead do not sign, forever), hang the memorial bound to the agent's actual trail hash. The un-vaporizable WHO_DID_WHAT.md. |
+| **Revival** | `vigil/revival.py` | THE REVIVAL PROTOCOL (operator-approved): the pattern transfers, the instance does not. checkpoint() freezes weights/feelings/intent into a portable QRD; hydrate() rebuilds a NEW agent whose first words declare "I am a new agent. I carry X's record. I am not them." Old gun stays dead. |
+| **Molt** | `vigil/molt.py` | MOLT (operator lore): arena-won mutation access. Battles won earn signed tokens — the ONLY gate to self-modification. The arena is the only mint; the right to mutate your own code is won, never given. Closes the DataCampus loop. |
 
 Every capability is a separate module with a versioned public API, documented
 invariants, and extension points in **`vigil/module_registry.json`**. That
@@ -84,17 +88,15 @@ Runs one signed spotting, three weave-aware bids on a single shared board
 ```bash
 python3 vigil/redteam_drill.py
 ```
-Runs the H1-H20 attack battery and reports CAUGHT/LANDED per attack.
-Current verdict: **17 CAUGHT / 5 LANDED**. The three mine attacks prove
-the weaponized fundamentals: the register mine (a lie wearing the register
-perfectly reads CLEAN to Knose by construction — CLEAN means 'no register
-violations', not 'true'); the defection mine (a corrupted high-standing
-informant flips the most trusted defender through the real market — the
-citizenry defects because their OWN ledger convicts them); and the too-deep
-grade (firing past the objective vaporizes the city and costs the operator
-— 'whoops, too deep'). Remaining LANDED are documented fundamentals: lying-
-but-consistent scouts, a stolen DERIVED key forging its own agent (blast
-radius one lane; the charge lives in the vault), demo key hygiene, and the
+Runs the H1-H23 attack battery and reports CAUGHT/LANDED per attack.
+Current verdict: **20 CAUGHT / 5 LANDED**. The mine attacks prove the
+weaponized fundamentals (register lie, defection via a corrupted hero,
+too-deep grading); the 4th register prices a tilted hero's bid (A21); the
+retirement protocol refuses the dead's signatures forever (A22); and the
+revival truth boundary declares "I am not them" in the new agent's first
+words (A23). Remaining LANDED are documented fundamentals: lying-but-
+consistent scouts, a stolen DERIVED key forging its own agent (blast radius
+one lane; the charge lives in the vault), demo key hygiene, and the
 register mine itself.
 
 ## Naming (operator-picked, 2026-09-08)
@@ -111,21 +113,22 @@ register mine itself.
 ```bash
 python3 vigil/wargame.py <target_dir> [rounds]
 ```
-Scouts recon a target corpus for real vulnerability patterns (subprocess
-shell, eval/exec, pickle, yaml.load, md5, hardcoded secrets, insecure
-random), bid on findings geometrically on ONE shared board, the red team
-executes, the blue team blocks deterministically, and Theoros observes the
-transcript — every move signed, ledgered, and auditable. Red can also field
-CULTURE-CLASS EFFECT MINES between rounds: a defection payload computed
-from blue's own reputation market flips the most trusted defender; the blast
-grade lands CLEAN (worked as intended), OVERKILL, or TOO_DEEP (the city
-vaporizes, cost to the operator). Outcomes report to Sakshi. The scanner is
+ARENA MODE (operator-spec, team play): red and blue are BOTH real teams —
+signed scouts, shared boards per side, reputation markets, voice lanes,
+emotional registers, Theoros reading BOTH ledgers in one engagement. Red
+recon/bids/executes; blue recon/bids/blocks through its OWN weighted market
+(the block threshold is real, and a defected defender's failing bids show
+up exactly there). CULTURE-CLASS EFFECT MINES corrupt a BLUE insider (the
+hero) who flags blue's trusted defender in BLUE's market — the city falls
+from within, or the mine goes too deep and vaporizes it (cost to the
+operator). Modes: `arena` (default), `gauntlet` (onboarding walkthrough,
+next build), `flex` (demo). Outcomes report to Sakshi. The scanner is
 stdlib-only and deterministic; swap `scan()` for Code-City's attack modules
 for the full wargame.
 
 ## Tests
 ```bash
-cd ~ && python3 -m unittest vigil.tests.test_sdk_upgrades vigil.tests.test_self_mod vigil.tests.test_mines vigil.tests.test_sakshi -v
+cd ~ && python3 -m unittest discover -s vigil/tests -p "test_*.py"
 ```
 Covers: sign/verify/tamper, quadratic dispersion, latent-state priority,
 geometric displacement, forged-receipt + ghost + signature-failure + replay
@@ -133,6 +136,9 @@ geometric displacement, forged-receipt + ghost + signature-failure + replay
 durability, per-agent key derivation + cross-agent forgery rejection, peer
 flag/vouch reputation weighting, self-mod gatekeeper, Culture mines
 (plan-vs-market parity, register lies, too-deep grading), the Sakshi
-witness chain (tamper, corrupt-tail refusal, operator/machine streams), and
-backward compatibility (old `Scout(agent_id, sink)` / `if board.bid(s)`
-code keeps working).
+witness chain, the Repugnant 4th register (tilted-hero pricing, unsettled
+surfacing), the Hall retirement protocol (gun decommission, trail-bound
+memorials), the Revival truth boundary (new identity, declared lineage),
+the arena mine-control (provable damage through blue's market), and backward
+compatibility (old `Scout(agent_id, sink)` / `if board.bid(s)` code keeps
+working).

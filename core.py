@@ -276,10 +276,12 @@ class SpottingBoard:
     higher-priority bid displaces an earlier claim.
     """
     def __init__(self, weave: Optional[Any] = None,
-                 peer_watch: Optional[Any] = None):
+                 peer_watch: Optional[Any] = None,
+                 repugnant: Optional[Any] = None):
         self.claims: Dict[str, Dict[str, Any]] = {}
         self.weave = weave
         self.peer_watch = peer_watch
+        self.repugnant = repugnant
 
     def bid(self, spotting: Spotting, latent: Optional[Dict[str, float]] = None,
             source_position: Optional[Any] = None) -> BidResult:
@@ -299,6 +301,13 @@ class SpottingBoard:
             peer = self.peer_watch.weight(spotting.source)
             priority *= peer
             geom = {**geom, "peer_weight": peer}
+
+        # 4th register: Repugnant prices the emotional state the market
+        # can't see — a TILTED hero's bid pays a discount it can't fake.
+        if self.repugnant is not None:
+            emo = self.repugnant.state_discount(spotting.source)
+            priority *= emo
+            geom = {**geom, "emotional_weight": emo}
 
         existing = self.claims.get(spotting.target)
         if existing is None:
@@ -346,12 +355,15 @@ class Swarm:
     def __init__(self, sink: Optional[PheromoneSink] = None, weave: Optional[Any] = None,
                  guard: Optional[Any] = None, store: Optional[Any] = None,
                  event_bus: Optional[Any] = None,
-                 peer_watch: Optional[Any] = None):
+                 peer_watch: Optional[Any] = None,
+                 repugnant: Optional[Any] = None):
         self.sink = sink if sink is not None else PheromoneSink(
             store=store, event_bus=event_bus, guard=guard)
         self.weave = weave
         self.peer_watch = peer_watch
-        self.board = SpottingBoard(weave=weave, peer_watch=peer_watch)
+        self.repugnant = repugnant
+        self.board = SpottingBoard(weave=weave, peer_watch=peer_watch,
+                                   repugnant=repugnant)
         # KNOSE loop wiring: the swarm's Voice sniffs utterances and
         # auto-flags corrupt speakers into the SAME peer ledger that
         # weights bids — voice -> sniff -> flag -> reputation.

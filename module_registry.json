@@ -155,6 +155,90 @@
       ]
     },
     {
+      "name": "repugnant",
+      "path": "repugnant.py",
+      "role": "THE 4TH REGISTER (operator-spec, emotional): signed, append-only emotional snapshots (CONFIDENT/FOCUSED/FRUSTRATED/TILTED/BURNT_OUT/EXCITED/ANXIOUS/FLOW_STATE) — watch the powerful, not the street. A tilted hero's bid pays a state discount through the real SpottingBoard; Theoros surfaces unsettled subjects as 'demand evidence, don't convict'. Grafted from the Code-City Repugnant bridge vocabulary.",
+      "version": "1",
+      "patchable": true,
+      "approval": "none",
+      "patch_policy": "scout-patchable. Keep observe()/state_discount()/unsettled() semantics and the never-accuses invariant; test gate must stay green; ledger entry with author+reason required. New emotional states must be added to STATE_DISCOUNT deliberately — each one is a market price.",
+      "public_api": ["Repugnant(path, guard)", "Repugnant.observe(subject, state, confidence, frustration, observed_by, note)", "Repugnant.history(subject)", "Repugnant.current_state(subject)", "Repugnant.state_discount(subject)", "Repugnant.unsettled(threshold)", "Repugnant.verify()", "EmotionalState", "STATE_DISCOUNT"],
+      "extension_points": [
+        "observe() — plug real telemetry (heartbeat lag, error rate, response time) into confidence/frustration instead of manual observation",
+        "STATE_DISCOUNT — reprice states as the paper accumulates data",
+        "verify() — fold into Theoros's reading as another signed surface"
+      ],
+      "invariants": [
+        "REPUGNANT RECORDS, IT DOES NOT ACCUSE — an unsettled reading is a signal to demand evidence, never a verdict of guilt",
+        "snapshots are signed (own canonical, own key) and append-only — tampering fails verify_record()",
+        "state_discount() returns 1.0 for never-observed subjects (no penalty for silence)",
+        "the board applies emotional_weight AFTER peer_weight — the 4th register prices what the market can't see, never replaces it"
+      ]
+    },
+    {
+      "name": "molt",
+      "path": "molt.py",
+      "role": "MOLT (operator lore): arena-won mutation access. Battles won earn signed Molt tokens — the ONLY gate to self-modification. The arena is the only mint; tokens cannot be bought, inherited, or faked. Closes the DataCampus loop: battle -> win -> Molt -> mutate your own code -> come back enhanced, or graduate through the door.",
+      "version": "1",
+      "patchable": true,
+      "approval": "none",
+      "patch_policy": "scout-patchable. Keep award/spend semantics and the earned-never-granted invariant; test gate must stay green; ledger entry with author+reason required. The mint key is the arena's — a different key cannot forge awards.",
+      "public_api": ["Molt(path, guard)", "Molt.award(agent_id, tokens, battle_id)", "Molt.spend(agent_id, tokens, reason)", "Molt.balance(agent_id)", "Molt.history(agent_id)", "Molt.verify()", "DEFAULT_MOLT_PATH"],
+      "extension_points": [
+        "award() — tie token count to battle difficulty/rounds survived",
+        "spend() — wire into self_mod.py apply as the mutation gate (the patch only lands if Molt pays)",
+        "verify() — fold into Theoros's reading as another signed surface"
+      ],
+      "invariants": [
+        "MOLT IS EARNED, NEVER GRANTED — the arena is the only mint",
+        "awards are signed by the arena keyring; forged awards fail verify()",
+        "spend() returns False when balance is insufficient — the mutation gate holds",
+        "Molt is not inheritable — balance is per-agent, forever"
+      ]
+    },
+    {
+      "name": "hall",
+      "path": "hall.py",
+      "role": "THE HALL OF THE DEVINE (operator-named): the retirement protocol. Decommissions the gun (RoboCop's law — a retired scout's derived key is refused by verify_guard, retirement is FOREVER with no un-retire path), then hangs a memorial bound to the agent's ACTUAL trail hash — the archive cannot drift into legend. verify() proves the memorial matches the trail or reports drift loudly. The un-vaporizable WHO_DID_WHAT.md.",
+      "version": "1",
+      "patchable": true,
+      "approval": "none",
+      "patch_policy": "scout-patchable. Keep retire()/verify() semantics and the forever-retirement invariant; test gate must stay green; ledger entry with author+reason required.",
+      "public_api": ["HallOfTheDevine(path)", "HallOfTheDevine.retire(keyring, agent_id, reason, trail, final_standing, last_words, conducted_by)", "HallOfTheDevine.memorials()", "HallOfTheDevine.memorial(agent_id)", "HallOfTheDevine.verify(agent_id, trail)", "DEFAULT_HALL_PATH"],
+      "extension_points": [
+        "retire() — fold in a Sakshi entry so the paper records retirements as first-class events",
+        "verify() — walk the agent's live ledgers instead of a provided trail",
+        "memorials() — render the Hall as a browsable archive (the onboarding Gauntlet's tombstone layer)"
+      ],
+      "invariants": [
+        "retire() decommissions the gun BEFORE hanging the memorial — no gap where the dead can be impersonated",
+        "RETIREMENT IS FOREVER — no un-retire path exists by design",
+        "every memorial binds to the agent's trail hash; verify() reports mismatch loudly, never smooths it over",
+        "the Hall records the dead, it never resurrects — no continuity claims, ever"
+      ]
+    },
+    {
+      "name": "revival",
+      "path": "revival.py",
+      "role": "THE REVIVAL PROTOCOL (operator-approved): the pattern transfers, the instance does not. checkpoint() freezes weights/feelings/intent + trail hash into a portable QRD; hydrate() rebuilds a NEW agent whose identity differs, whose first voice record declares the lineage ('I am a new agent. I carry X's record. I am not them.'), and whose old gun stays decommissioned. lineage() writes who-revived-whom receipts.",
+      "version": "1",
+      "patchable": true,
+      "approval": "none",
+      "patch_policy": "scout-patchable. Keep the truth-boundary invariant (new identity, declared lineage) above all; test gate must stay green; ledger entry with author+reason required.",
+      "public_api": ["checkpoint(scout, trail, out)", "hydrate(keyring, qrd, new_id, sink, board, weave)", "lineage(qrd, new_id, old_id)", "CHECKPOINT_VERSION"],
+      "extension_points": [
+        "checkpoint() — add more state surfaces (receipt chain, full voice memory) as the paper needs them",
+        "hydrate() — plug into the Gauntlet so a leveled-up scout revives between stages",
+        "lineage() — cross-link with the Hall's memorials for a full genealogy view"
+      ],
+      "invariants": [
+        "a hydrated agent's identity is NEVER the original's — the dead cannot speak through a new throat under their own name",
+        "the first voice record of a revived agent declares the lineage out loud — no sweet lies",
+        "checkpoint() is a snapshot: the original scout is untouched, nothing is transferred destructively",
+        "the old gun stays decommissioned; the new agent gets a NEW derived key"
+      ]
+    },
+    {
       "name": "mines",
       "path": "mines.py",
       "role": "Culture-class effect weapons (operator-specced): DefectionMine computes the MINIMAL signed flag chain that flips a defender through the target's OWN weighted-reputation market; RegisterMine manufactures fluent-register lies Knose rates CLEAN by construction; too_deep() grades overreach — firing past the objective vaporizes the city and costs the operator.",

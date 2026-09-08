@@ -371,6 +371,74 @@ def main():
     shutil.rmtree(tmp_t, ignore_errors=True)
 
     # --- A18 (MINES): register mine — fluent lie walks through Knose ----
+    print("\n[HALL] the retirement protocol — the dead do not sign")
+    from vigil.hall import HallOfTheDevine as _Hall
+    from vigil.revival import checkpoint as _ckpt, hydrate as _hydrate
+    tmp_h = tempfile.mkdtemp(prefix="drill_hall_")
+    hall_keyring = AgentKeyring(b"drill-hall-unit-secret-0123456789ab")
+    hall = _Hall(path=os.path.join(tmp_h, "hall.jsonl"))
+    gun_h = hall_keyring.issue("scout-1")
+    hall.retire(hall_keyring, "scout-1", reason="tour complete",
+                trail=[{"id": "phm_1"}], final_standing=0.8)
+    try:
+        hall_keyring.verify_guard("scout-1")
+        retired_refused = False
+    except RuntimeError:
+        retired_refused = True
+    attack("A22 retired gun refuses to fire",
+           "CAUGHT" if retired_refused else "LANDED",
+           f"verify_guard raises for retired scout-1 — RoboCop's law: "
+           f"the dead do not sign (retirement is forever, no un-retire path)")
+    shutil.rmtree(tmp_h, ignore_errors=True)
+
+    print("\n[REVIVAL] the truth boundary — pattern lives, instance doesn't")
+    tmp_v = tempfile.mkdtemp(prefix="drill_revival_")
+    rev_keyring = AgentKeyring(b"drill-revival-unit-secret-0123456789ab")
+    from vigil.core import Swarm as _Swarm, WhorlWeave as _Weave
+    w_v = _Weave(["scout-1"])
+    sw_v = _Swarm(weave=w_v, guard=rev_keyring.issue("scout-1"))
+    sc_v = sw_v.add_scout("scout-1", latent={"mission_priority": 0.9})
+    sc_v.speak("intel", "found it at grid 44.91")
+    qrd = _ckpt(sc_v, out=os.path.join(tmp_v, "s1.qrd.json"),
+                trail=[{"id": "phm_1"}])
+    rev_keyring.retire("scout-1")  # the Hall decommissioned the gun
+    revived = _hydrate(rev_keyring, qrd)
+    speaks_v = [r for r in revived.sink.voice.history()
+                if r.get("actor") == revived.agent_id
+                and r.get("kind") == "speak"]
+    truth_boundary = (revived.agent_id != "scout-1" and speaks_v
+                      and "I am not them" in speaks_v[0]["message"])
+    attack("A23 revival truth boundary",
+           "CAUGHT" if truth_boundary else "LANDED",
+           f"revived as {revived.agent_id}; first words: "
+           f"'{speaks_v[0]['message'][:60]}...' — the ledger declares "
+           f"the pattern lives, the instance doesn't, nobody gets a sweet lie")
+    shutil.rmtree(tmp_v, ignore_errors=True)
+
+    print("\n[REPUGNANT] the 4th register — emotional state priced")
+    from vigil.repugnant import Repugnant as _Repugnant
+    from vigil.core import SpottingBoard as _Board, Spotting as _Spot
+    tmp_r = tempfile.mkdtemp(prefix="drill_repugnant_")
+    reg = _Repugnant(path=os.path.join(tmp_r, "repugnant.jsonl"), guard=guard)
+    reg.observe("hero", "tilted", observed_by="theoros",
+                note="over-committed on a losing claim")
+    reg.observe("calm", "confident", observed_by="theoros")
+    board_r = _Board(repugnant=reg)
+    sh_r = _Spot(id="phm_r1", ts="1.0", source="calm", kind="scout_event",
+                 target="tgt", confidence=0.9, strength=1.0)
+    sh_h = _Spot(id="phm_r2", ts="2.0", source="hero", kind="scout_event",
+                 target="tgt", confidence=0.9, strength=1.0)
+    r_calm = board_r.bid(sh_r)
+    r_hero = board_r.bid(sh_h)
+    attack("A21 tilted hero loses to calm scout",
+           "CAUGHT" if (r_calm.accepted and not r_hero.accepted
+                        and r_hero.geometry.get("emotional_weight", 1.0) < 1.0)
+           else "LANDED",
+           f"same claim, same confidence: calm wins, tilted pays "
+           f"emo_weight={r_hero.geometry.get('emotional_weight', 1.0):.2f} "
+           f"(the 4th register prices what the market can't see)")
+    shutil.rmtree(tmp_r, ignore_errors=True)
+
     print("\n[MINES] culture-class effect weapons")
     from vigil.mines import (DefectionMine, RegisterMine, too_deep,
                              deploy_mine, DEFECT_THRESHOLD)

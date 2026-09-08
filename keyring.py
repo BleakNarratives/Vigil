@@ -130,6 +130,18 @@ class AgentKeyring:
 
     def __init__(self, unit_secret: bytes):
         self._unit_secret = bytes(unit_secret)
+        self._revoked: set = set()
+
+    def retire(self, agent_id: str) -> None:
+        """DECOMMISSION THE GUN (RoboCop's law, operator-spec): the derived
+        key of a retired/dead agent is a loaded weapon with no hand.
+        Retirement is FOREVER — after this, verify_guard() refuses the
+        agent's signatures. The Hall of the Devine calls this before it
+        hangs the memorial, so there is no gap where the dead can fire."""
+        self._revoked.add(agent_id)
+
+    def is_retired(self, agent_id: str) -> bool:
+        return agent_id in self._revoked
 
     def issue(self, agent_id: str, dna: Optional[str] = None):
         """Issue the agent's signing guard at birth. The agent receives a
@@ -140,7 +152,13 @@ class AgentKeyring:
 
     def verify_guard(self, agent_id: str, dna: Optional[str] = None):
         """Shepherd-side guard for verifying an agent's signatures. Derives
-        the SAME key the agent was issued — the gun only fires for its owner."""
+        the SAME key the agent was issued — the gun only fires for its owner.
+        RETIRED agents are refused: the dead do not sign. Retirement is
+        forever; there is no un-retire path by design."""
+        if agent_id in self._revoked:
+            raise RuntimeError(f"agent {agent_id!r} is RETIRED — signatures "
+                               f"refused (RoboCop's law: the gun does not "
+                               f"fire for the dead)")
         if CommandGuard is None:
             raise RuntimeError("CommandGuard unavailable (vigil/integrity.py missing)")
         return CommandGuard(key=derive_agent_key(self._unit_secret, agent_id, dna))
